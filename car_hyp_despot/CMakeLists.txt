@@ -18,6 +18,28 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse2 -mfpmath=sse")
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -arch=sm_30")
 set(CMAKE_MODULE_PATH ${CMAKE_PREFIX_PATH} "${PROJECT_SOURCE_DIR}/cmake")
 
+# GRPC
+include(FetchContent)
+FetchContent_Declare(
+        gRPC
+        GIT_REPOSITORY https://github.com/grpc/grpc
+        GIT_TAG        v1.46.3  # e.g v1.28.0
+)
+set(FETCHCONTENT_QUIET OFF)
+FetchContent_MakeAvailable(gRPC)
+set(_PROTOBUF_LIBPROTOBUF libprotobuf)
+set(_REFLECTION grpc++_reflection)
+set(_PROTOBUF_PROTOC $<TARGET_FILE:protoc>)
+set(_GRPC_GRPCPP grpc++)
+if(CMAKE_CROSSCOMPILING)
+    find_program(_GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
+else()
+    set(_GRPC_CPP_PLUGIN_EXECUTABLE $<TARGET_FILE:grpc_cpp_plugin>)
+endif()
+
+# GRPC
+
+
 set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -135,6 +157,7 @@ STATIC
   src/planner/world_model.cpp
   src/planner/crowd_belief.cpp  
   src/planner/param.cpp
+  src/planner/moped_prediction.cpp
 )
 
 add_dependencies("${PROJECT_NAME}" ${catkin_EXPORTED_TARGETS})
@@ -152,4 +175,59 @@ target_compile_definitions(${PROJECT_NAME}
 target_link_libraries("${PROJECT_NAME}"
   ${TinyXML_LIBRARIES}
 )
+
+## GRPC
+# GRPC
+
+set(_PROTOBUF_LIBPROTOBUF libprotobuf)
+set(_REFLECTION grpc++_reflection)
+set(_PROTOBUF_PROTOC $<TARGET_FILE:protoc>)
+set(_GRPC_GRPCPP grpc++)
+if(CMAKE_CROSSCOMPILING)
+    find_program(_GRPC_CPP_PLUGIN_EXECUTABLE grpc_cpp_plugin)
+else()
+    set(_GRPC_CPP_PLUGIN_EXECUTABLE $<TARGET_FILE:grpc_cpp_plugin>)
+endif()
+
+# Proto file
+get_filename_component(hw_proto "../crowd_pomdp_planner/protos/agentinfo.proto" ABSOLUTE)
+get_filename_component(hw_proto_path "${hw_proto}" PATH)
+
+# Generated sources
+set(hw_proto_srcs "${CMAKE_CURRENT_BINARY_DIR}/agentinfo.pb.cc")
+set(hw_proto_hdrs "${CMAKE_CURRENT_BINARY_DIR}/agentinfo.pb.h")
+set(hw_grpc_srcs "${CMAKE_CURRENT_BINARY_DIR}/agentinfo.grpc.pb.cc")
+set(hw_grpc_hdrs "${CMAKE_CURRENT_BINARY_DIR}/agentinfo.grpc.pb.h")
+
+add_custom_command(
+        OUTPUT "${hw_proto_srcs}" "${hw_proto_hdrs}" "${hw_grpc_srcs}" "${hw_grpc_hdrs}"
+        COMMAND ${_PROTOBUF_PROTOC}
+        ARGS --grpc_out "${CMAKE_CURRENT_BINARY_DIR}"
+        --cpp_out "${CMAKE_CURRENT_BINARY_DIR}"
+        -I "${hw_proto_path}"
+        --plugin=protoc-gen-grpc="${_GRPC_CPP_PLUGIN_EXECUTABLE}"
+        "${hw_proto}"
+        DEPENDS "${hw_proto}")
+
+# Include generated *.pb.h files
+include_directories("${CMAKE_CURRENT_BINARY_DIR}")
+
+# hw_grpc_proto
+add_library(hw_grpc_proto
+        ${hw_grpc_srcs}
+        ${hw_grpc_hdrs}
+        ${hw_proto_srcs}
+        ${hw_proto_hdrs})
+
+target_link_libraries(hw_grpc_proto
+        ${_REFLECTION}
+        ${_GRPC_GRPCPP}
+        ${_PROTOBUF_LIBPROTOBUF})
+
+# Targets greeter_[async_](client|server)
+target_link_libraries(${PROJECT_NAME}
+        hw_grpc_proto
+        ${_REFLECTION}
+        ${_GRPC_GRPCPP}
+        ${_PROTOBUF_LIBPROTOBUF})
 
