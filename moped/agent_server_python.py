@@ -1,3 +1,5 @@
+#!/home/cunjun/anaconda3/envs/conda38/bin/python
+
 # Copyright 2015 gRPC authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,7 +18,7 @@
 from concurrent import futures
 import logging
 import time
-
+import sys
 
 import grpc
 import agentinfo_pb2
@@ -24,11 +26,7 @@ import agentinfo_pb2_grpc
 import numpy as np
 from moped_implementation.planner_wrapper import PlannerWrapper
 
-logging.basicConfig(filename="/home/cunjun/p3_catkin_ws_new/src/moped/logfilexx.txt",
-                    filemode='w',
-                    format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
-                    datefmt='%H:%M:%S',
-                    level=logging.DEBUG)
+
 
 MAX_HISTORY_MOTION_PREDICTION = 30
 
@@ -54,13 +52,14 @@ class Greeter(agentinfo_pb2_grpc.MotionPredictionServicer):
         agents_history = np.stack(xy_pos_list)
         planner = PlannerWrapper()
 
-        logging.info(f"Time for preprocessing: {time.time() - start}")
+        #logging.info(f"Time for preprocessing: {time.time() - start}")
         start = time.time()
 
         # Simple simulation
-        probs, predictions = planner.constant_velocity(agents_history)
+        #probs, predictions = planner.constant_velocity(agents_history)
+        probs, predictions = planner.constant_acceleration(agents_history)
 
-        logging.info(f"Time for prediction: {time.time() - start}")
+        #logging.info(f"Time for prediction: {time.time() - start}")
         start = time.time()
 
         # Build response:
@@ -75,7 +74,7 @@ class Greeter(agentinfo_pb2_grpc.MotionPredictionServicer):
             response.agentInfo.append(agent_info)
             response.probInfo.append(prob_info)
 
-        logging.info(f"Time for producing response: {time.time() - start}")
+        #logging.info(f"Time for producing response: {time.time() - start}")
         start = time.time()
 
         return response
@@ -83,7 +82,7 @@ class Greeter(agentinfo_pb2_grpc.MotionPredictionServicer):
 
 
 def serve():
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=1000))
     agentinfo_pb2_grpc.add_MotionPredictionServicer_to_server(Greeter(), server)
     server.add_insecure_port('[::]:50051')
     server.start()
@@ -91,5 +90,10 @@ def serve():
 
 
 if __name__ == '__main__':
-    logging.basicConfig()
+    logging.basicConfig(filename="/home/cunjun/p3_catkin_ws_new/src/moped/logfilexx.txt",
+                        filemode='w',
+                        format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+                        datefmt='%H:%M:%S',
+                        level=logging.DEBUG)
+    logging.info(sys.executable)
     serve()

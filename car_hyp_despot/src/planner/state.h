@@ -23,13 +23,17 @@ struct CoordHistory {
     CoordHistory() {
         true_history = 0;
     }
+    std::vector<double> time_history;
 
-    void Add(COORD coord) {
+    void Add(COORD coord, double update_time) {
         if (coord_history.size() < MAX_HISTORY) {
             coord_history.push_back(coord);
+            time_history.push_back(update_time);
         } else {
             coord_history.erase(coord_history.begin());
+            time_history.erase(time_history.begin());
             coord_history.push_back(coord);
+            time_history.push_back(update_time);
         }
         true_history += 1;
     }

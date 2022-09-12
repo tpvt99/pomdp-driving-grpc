@@ -39,7 +39,7 @@ public:
 	void Resize(int new_intentions, int new_modes);
 	void Reset();
 	void Update(WorldModel&, AgentStruct& past_agent, const AgentStruct& cur_agent,
-			int intention_id, int mode_id);
+			int intention_id, int mode_id, std::map<int, std::vector<double>> prediction_result);
 	void Normalize();
 	void Sample(int& intention, int& mode);
 	void Text(std::ostream& out) {
@@ -80,7 +80,8 @@ struct AgentBelief {
 	void Sample(int& goal, int& mode) const;
 	void Reset(int new_intention_size);
 
-	void Update(WorldModel& model, const AgentStruct& cur_agent, int num_intentions);
+	void Update(WorldModel& model, const AgentStruct& cur_agent, int num_intentions,
+                std::map<int, std::vector<double>> prediction_result);
 	bool OutDated(double cur_time_stamp) {
 		return abs(time_stamp - cur_time_stamp) > 2.0;
 	}

@@ -47,18 +47,19 @@ std::map<int, std::vector<double>> MotionPredictionClient::Predict(std::vector<A
         std::map<int, std::vector<double>> results;
 
         if (status.ok()) {
-            std::cout << "Success" << std::endl;
+            std::cout << "GRPC Call Success" << std::endl;
             for (int i = 0; i < reply.agentinfo_size(); i++) {
                 std::vector<double> returnAgentInfo;
 
                 agentinfo::ProbabilityInfo *probInfo = reply.mutable_probinfo(i);
                 agentinfo::AgentInfo *agentInfo = reply.mutable_agentinfo(i);
 
-                //std::cout << "AgentInfo: id: " << agentInfo->agentid() << " x: " << agentInfo->x(0) << std::endl;
-                //std::cout << "Prob Info: id: " << probInfo->agentid() << " prob: " << probInfo->prob() << std::endl;
-                returnAgentInfo.push_back(probInfo->agentid());
+                returnAgentInfo.push_back(probInfo->prob());
                 returnAgentInfo.push_back(agentInfo->x(0));
                 returnAgentInfo.push_back(agentInfo->y(0));
+
+//                std::cout << "Prediction agent " << probInfo->agentid() << " with x_next: " << agentInfo->x(0)
+//                << " and y_next: " << agentInfo->y(0)  << " prob: " << probInfo->prob() << std::endl;
 
                 results.insert({agentInfo->agentid(), returnAgentInfo});
             }
