@@ -158,7 +158,7 @@ def get_statistics(root_path, filtered_files):
                 random_interested_agent = random.choice(sorted_nearest[0:3])
 
                 # 3. Building file
-                
+
 
 
     print("%d filtered files found in %s" % (len(filtered_files), root_path))
