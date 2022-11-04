@@ -90,8 +90,14 @@ do
     child=$!
     wait "$child"
     kill -9 "$child"
-#    echo "[repeat_run] clearing process"
-    # python ./clear_process.py $port
-    # sleep 3
+
+    echo "[repeat_run] clearing process"
+    python ./clear_process.py $port
+    # Kill all process port that I know
+    kill -9 $(lsof -t -i:50051)
+    kill -9 $(lsof -t -i:2000)
+    kill -9 $(lsof -t -i:8100)
+
+    sleep 3
 done
 echo "Exp finished in "$SECONDS" seconds"

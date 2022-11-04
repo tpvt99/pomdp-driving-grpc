@@ -28,14 +28,14 @@ from moped_implementation.planner_wrapper import PlannerWrapper
 
 
 
-MAX_HISTORY_MOTION_PREDICTION = 30
+MAX_HISTORY_MOTION_PREDICTION = 20
 
 class Greeter(agentinfo_pb2_grpc.MotionPredictionServicer):
 
     def Predict(self, request, context):
         xy_pos_list = []
         agent_id_list = []  # To read back when return results
-        logging.info(f"Receive request")
+
         start = time.time()
         for agentInfo in request.agentInfo:
             x_pos = np.array(agentInfo.x)
@@ -47,20 +47,29 @@ class Greeter(agentinfo_pb2_grpc.MotionPredictionServicer):
             xy_pos = np.pad(xy_pos, pad_width=((0, MAX_HISTORY_MOTION_PREDICTION - xy_pos.shape[0]), (0, 0)),
                             mode="edge")
             xy_pos_list.append(xy_pos)
+            #logging.info(f"[P] Shape of x_pos is {x_pos.shape} and y_pos is {y_pos.shape} and after padd {xy_pos.shape}")
+
             agent_id_list.append(agentInfo.agentId)
 
+        logging.info(f"Time for building agentInfo array: {time.time() - start}")
+        prediction_time = time.time()
+
+        # Shape (number_agents, observation_len, 2)
         agents_history = np.stack(xy_pos_list)
         planner = PlannerWrapper()
+        #logging.info(f"[P] Shape of agents_history is {agents_history.shape} and list length {len(agent_id_list)}")
 
         #logging.info(f"Time for preprocessing: {time.time() - start}")
-        start = time.time()
 
         # Simple simulation
-        #probs, predictions = planner.constant_velocity(agents_history)
-        probs, predictions = planner.constant_acceleration(agents_history)
+        probs, predictions = planner.constant_velocity(agents_history) # probs shape (number_agents,) predictions shape (number_agents, pred_len, 2)
+        #probs, predictions = planner.constant_acceleration(agents_history)
+        #probs, predictions = planner.knn_map_nosocial(agents_history)
 
-        #logging.info(f"Time for prediction: {time.time() - start}")
-        start = time.time()
+        #logging.info(f"[P] Shape of probs is {probs.shape} and predictions is {predictions.shape}")
+
+        logging.info(f"Time for prediction: {time.time() - prediction_time}")
+        response_time = time.time()
 
         # Build response:
         response = agentinfo_pb2.PredictionResponse()
@@ -68,18 +77,17 @@ class Greeter(agentinfo_pb2_grpc.MotionPredictionServicer):
             prob_info = agentinfo_pb2.ProbabilityInfo(prob = probs[i], agentId = id)
             agent_info = agentinfo_pb2.AgentInfo()
             agent_info.agentId = id
-            agent_info.x.append(predictions[i][0][0])
-            agent_info.y.append(predictions[i][0][1])
+            agent_info.x.append(predictions[i][0][0]) # Get number_agent_id of 1st axis, of first pred of 2nd axis, of x of 3rd axis
+            agent_info.y.append(predictions[i][0][1]) # Get number_agent_id of 1st axis, of first pred of 2nd axis, of y of 3rd axis
 
             response.agentInfo.append(agent_info)
             response.probInfo.append(prob_info)
 
-        #logging.info(f"Time for producing response: {time.time() - start}")
-        start = time.time()
+        end = time.time()
+        logging.info(f"Time for producing response: {end - response_time}")
+        logging.info(f"Time for running end-to-end: {end - start}")
 
         return response
-
-
 
 def serve():
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=1000))

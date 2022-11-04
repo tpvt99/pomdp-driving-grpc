@@ -402,9 +402,8 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
 
         std::map<int, std::vector<double>> predictionResults = callPython(neighborAgents);
 
-
         if (MopedParams::PHONG_DEBUG) {
-            logi << "[Phong] ContextPomdp::Step 123 buildAgent Time: " << Globals::ElapsedTime(start_t) << endl;
+            logi << "[Phong] ContextPomdp::Step 123 buildAgentAndPredict Time: " << Globals::ElapsedTime(start_t) << endl;
         }
 
         for (int i = 0; i < state.num; i++) {

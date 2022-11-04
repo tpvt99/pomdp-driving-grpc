@@ -92,12 +92,6 @@ void HiddenStateBelief::Update(WorldModel& model, AgentStruct& past_agent, const
 
     if (MopedParams::PHONG_DEBUG) {
         logi << "[PHONG] HiddenStateBelief::Update 1 Step before" << endl;
-//        logi << "HSB::Update before pred_agent: id: " << &predicted_agent << " ";
-//        predicted_agent.PhongAgentText(cout);
-//        logi << "HSB::Update before past_agent: " << &past_agent << " ";
-//        past_agent.PhongAgentText(cout);
-//        logi << "HSB::Update before cur_agent: "<< &cur_agent << " ";
-//        const_cast<AgentStruct &>(cur_agent).PhongAgentText(cout);
     }
 
     if (MopedParams::USE_MOPED) {
@@ -118,12 +112,6 @@ void HiddenStateBelief::Update(WorldModel& model, AgentStruct& past_agent, const
 
     if (MopedParams::PHONG_DEBUG) {
         logi << "[PHONG] HiddenStateBelief::Update 1 Step after" << endl;
-//        logi << "HSB::Update after pred_agent: ";
-//        predicted_agent.PhongAgentText(cout);
-//        logi << "HSB::Update after past_agent: ";
-//        past_agent.PhongAgentText(cout);
-//        logi << "HSB::Update after cur_agent: ";
-//        const_cast<AgentStruct &>(cur_agent).PhongAgentText(cout);
     }
 }
 
@@ -374,6 +362,8 @@ void CrowdBelief::Update(ACT_TYPE action, const State* state) {
 
     world_model_.PrepareAttentiveAgentMeanDirs(state);
 
+    auto start_t = Time::now();
+
     // Build neighbor agents
     std::vector<AgentStruct> neighborAgents;
     for (auto it= src_agent_map.begin(); it!=src_agent_map.end(); ++it) {
@@ -383,6 +373,9 @@ void CrowdBelief::Update(ACT_TYPE action, const State* state) {
 
     std::map<int, std::vector<double>> predictionResults = callPython(neighborAgents);
 
+    if (MopedParams::PHONG_DEBUG) {
+        logi << "[PHONG] CrowdBelief::Update buildAgentAndPredict Time: " << Globals::ElapsedTime(start_t) << endl;
+    }
 
     for (auto it= src_agent_map.begin(); it!=src_agent_map.end(); ++it) {
         int id = it->first;
