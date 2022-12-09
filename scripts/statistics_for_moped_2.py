@@ -6,7 +6,10 @@ import math
 import random
 import pandas as pd
 
-OUTPUT_FOLDER = "/home/cunjun/moped_data/summit/"
+# This script is different from statistics_for_moped.py in which  the starting point of outputing agents does not
+# need to have that starting point
+
+OUTPUT_FOLDER = "/home/cunjun/driving_data_sparse/result/summit_process/"#"/home/cunjun/moped_data/summit/"
 
 cap = 10
 
@@ -160,8 +163,8 @@ def get_statistics(root_path, filtered_files):
                     # 0. Get the starting index by considering the maximum number of agents having that index
                     start_index = 0
                     end_index = start_index + min(150, cur_step-50) # we want at max 50 but at least 150 for many random
-                    max_index = -1
-                    max_count = 0
+
+                    index_count_dict = {} # This dict to maintain the counts so that we can sample probabilities
                     for index in random.sample(range(start_index, end_index), k = min(end_index, 50)):
                         count = 0
                         for v in data_pos.values():
@@ -169,11 +172,14 @@ def get_statistics(root_path, filtered_files):
                                 count += 1
                             if index in v.keys() and (index+49) in v.keys(): # prioritize to have at least 1 50-sequence agents
                                 count += 100
-                        if count > max_count:
-                            max_count = count
-                            max_index = index
 
-                    start_index = max_index
+                        index_count_dict[index] = count
+
+                    # Normalize the index
+                    index_count_dict_sum_of_vals = sum([v for v in index_count_dict.values()])
+                    normalized_count_dict = {k: v / index_count_dict_sum_of_vals for k,v in index_count_dict.items()}
+                    sampled_index = random.choices(range(len(normalized_count_dict)), weights = list(normalized_count_dict.values()), k=1)[0]
+                    start_index = sampled_index
 
                     # 1. Get only agent's whose trajectory start at time start_index
                     considered_agents = {}
@@ -196,17 +202,18 @@ def get_statistics(root_path, filtered_files):
                         print(f'ahaha start{start_index} end_index {end_index}')
                         print(txtfile)
                         continue
+
                     sorted_nearest = sorted(nearest_values.items(), key = lambda x : x[0])
                     random_interested_agent = random.choice(sorted_nearest[0:3])
 
                     # 3. Building file. Each file has TIMESTAMP, TRACk_ID OBJECT_TYPE, X, Y, CITY_NAME
                     # 3.1 Add "av" to considered_agents
-                    considered_agents["av"] = data_pos["av"]
+                    #considered_agents["av"] = data_pos["av"]
                     data_frame = []
                     # 3.2 Build the dictionary to output pandas frame
-                    for k, v in considered_agents.items():
+                    for k, v in data_pos.items():
                         for timestamp, pos in v.items():
-                            if ((timestamp - start_index) >= 0) and (timestamp - start_index) < 50: # cater for 'av' type
+                            if ((timestamp - start_index) >= 0) and ((timestamp - start_index) < 50): # cater for 'av' type
                                 temp = {
                                     "TIMESTAMP":timestamp-start_index,
                                     "TRACK_ID": 0 if "av" in k else k[5:],
@@ -249,7 +256,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--folder',
         type=str,
-        default='/home/cunjun/driving_data_collect/result/joint_pomdp_drive_mode/',
+        default='/home/cunjun/driving_data_sparse/result/joint_pomdp_drive_mode/',
         help='Subfolder to check')
 
     flag = parser.parse_args().flag
