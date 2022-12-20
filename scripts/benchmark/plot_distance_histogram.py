@@ -4,7 +4,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+#TRAIN_FOLDER_SUMMIT = "/home/cunjun/driving_data/result/summit_process/train/" #"/home/cunjun/moped_data/summit/train/data/"
 TRAIN_FOLDER_SUMMIT = "/home/cunjun/moped_data/summit/train/data/"
+
 TRAIN_FOLDER_ARGOVERSE = "/home/cunjun/moped_data/argoverse/train/data"
 
 cap = 10
