@@ -1,6 +1,8 @@
 #include <csignal>
 #include <time.h>
 #include <boost/bind.hpp>
+#include <ctime>
+#include <chrono>
 
 #include <core/node.h>
 #include <core/solver.h>
@@ -46,6 +48,31 @@ protected:
 
 struct div_0_exception {
 };
+
+std::string printCurrentTime() {
+    using namespace std::chrono;
+
+    // get current time
+    auto now = system_clock::now();
+
+    // get number of milliseconds for the current second
+    // (remainder after division into seconds)
+    auto ms = duration_cast<milliseconds>(now.time_since_epoch()) % 1000;
+
+    // convert to std::time_t in order to convert to std::tm (broken time)
+    auto timer = system_clock::to_time_t(now);
+
+    // convert to broken time
+    std::tm bt = *std::localtime(&timer);
+
+    std::ostringstream oss;
+
+    oss << std::put_time(&bt, "%H:%M:%S"); // HH:MM:SS
+    oss << '.' << std::setfill('0') << std::setw(3) << ms.count();
+
+    //return "The current time is : " + std::to_string(Hour) + ":" + std::to_string(Min) + ":" + std::to_string(Sec);
+    return "The current time is : " + oss.str();
+}
 
 void handle_div_0(int sig, siginfo_t* info, void*) {
     switch (info->si_code) {
@@ -175,7 +202,7 @@ void Controller::InitializeDefaultParameters() {
     if (b_drive_mode == JOINT_POMDP || b_drive_mode == ROLL_OUT) {
         Globals::config.useGPU = false;
         Globals::config.num_scenarios = 5;
-        Globals::config.NUM_THREADS = 10;
+        Globals::config.NUM_THREADS = 1;
         Globals::config.discount = 0.95;
         Globals::config.search_depth = 12;
         Globals::config.max_policy_sim_len = 20;
@@ -212,6 +239,9 @@ bool Controller::RunStep(despot::Solver* solver, World* world, Logger* logger) {
 
     if (MopedParams::PHONG_DEBUG)
         logi << "[PHONG] Controller::RunStep 1 - GetCurrentState:" << endl;
+
+    logi << printCurrentTime() << "[PHONG] Controller::RunStep 1 - GetCurrentState:" << endl;
+
     auto start_t = Time::now();
     const State* cur_state = world->GetCurrentState();
     if (cur_state == NULL)
@@ -219,6 +249,7 @@ bool Controller::RunStep(despot::Solver* solver, World* world, Logger* logger) {
 
     if (MopedParams::PHONG_DEBUG)
         logi << "[PHONG] Controller::RunStep 2 - Update Belief:" << endl;
+
     cerr << "DEBUG: Updating belief" << endl;
     ped_belief_->Update(last_action_, cur_state);
     ped_belief_->Text(cout);
@@ -254,6 +285,9 @@ bool Controller::RunStep(despot::Solver* solver, World* world, Logger* logger) {
     if (MopedParams::PHONG_DEBUG)
         logi << "[PHONG] Controller::RunStep 6 - Solving particle_belief:" << endl;
 
+    logi << printCurrentTime() << "[PHONG] Controller::RunStep 6 - Solving particle_belief:" << endl;
+
+
     solver->belief(&particle_belief);
     logi << "[RunStep] Time spent in Update(): "
          << Globals::ElapsedTime(start_t) << endl;
@@ -274,8 +308,14 @@ bool Controller::RunStep(despot::Solver* solver, World* world, Logger* logger) {
     logi << "[RunStep] Time spent in " << typeid(*solver).name()
          << "::Search(): " << Globals::ElapsedTime(start_t) << endl;
 
+    logi << printCurrentTime() << "[PHONG] Controller::RunStep 7 - Done Finding action" << endl;
+
+
     if (MopedParams::PHONG_DEBUG)
         logi << "[PHONG] Controller::RunStep 8 - Executing action:" << endl;
+
+    logi << printCurrentTime() << "[PHONG] Controller::RunStep 8 - Executing action:" << endl;
+
 
     cerr << "DEBUG: Executing action" << endl;
     OBS_TYPE obs;

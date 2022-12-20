@@ -2,3 +2,7 @@
 *.swo
 *.pyc
 *.txt
+
+**/moped_implementation
+**/build/
+**/cmake-build-debug/

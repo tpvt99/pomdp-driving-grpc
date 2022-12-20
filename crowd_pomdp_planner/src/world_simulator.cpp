@@ -232,9 +232,10 @@ State* WorldSimulator::GetCurrentState() {
     }
     logi << " current state time stamp " << current_state_.time_stamp << endl;
 
-    if (MopedParams::PHONG_DEBUG)
+    if (MopedParams::PHONG_DEBUG) {
         logi << "[PHONG] Print Updated State in WorldSimulator::GetCurrentState()" << endl;
-    current_state_.PomdpStateWorldText(cout);
+        current_state_.PomdpStateWorldText(cout);
+    }
 
     return static_cast<State*>(&current_state_);
 }

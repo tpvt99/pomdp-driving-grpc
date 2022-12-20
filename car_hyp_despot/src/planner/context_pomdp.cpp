@@ -7,6 +7,9 @@
 #include <map>
 #include <unordered_map>
 
+#include <chrono>
+#include <thread>
+
 #include <core/builtin_lower_bounds.h>
 #include <core/builtin_policy.h>
 #include <core/builtin_upper_bounds.h>
@@ -316,6 +319,7 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
 
     PomdpState& state = static_cast<PomdpState&>(state_); // Even assignment, this will mutate the state because reference
     reward = 0.0;
+    logi << "[Phong] ContextPomdp::Step 123" << endl;
 
     if (MopedParams::PHONG_DEBUG) {
         logi << "[Phong] ContextPomdp::Step 123 - before: " << " action: " << action << "rewards: " << reward << "obs: " << obs << endl;
@@ -388,12 +392,13 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
 
     state.time_stamp = state.time_stamp + 1.0 / ModelParams::CONTROL_FREQ;
 
+    auto start_t = Time::now();
+
     if (MopedParams::USE_MOPED) {
         if (MopedParams::PHONG_DEBUG)
             logi << "[PHONG] Number of states: " << state.num << endl;
 
         // Build neighbor agents
-        auto start_t = Time::now();
 
         std::vector<AgentStruct> neighborAgents;
         for (int i = 0; i < state.num; i++) {
@@ -412,13 +417,10 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
             ERR("state.agents[i].pos.x is NAN");
         }
 
-        if (MopedParams::PHONG_DEBUG) {
-            logi << "[Phong] ContextPomdp::Step 123 All MopedPred Time: " << Globals::ElapsedTime(start_t) << " agents_length: " << state.num << endl;
-        }
+        std::this_thread::sleep_for(std::chrono::microseconds(1));
 
 
     } else {
-        auto start_t = Time::now();
 
         if (use_gamma_in_search) {
             // Attentive pedestrians
@@ -435,10 +437,11 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
                 ERR("state.agents[i].pos.x is NAN");
             }
         }
-        if (MopedParams::PHONG_DEBUG)
-            logi << "[Phong] ContextPomdp::Step 123 All Gamma: " << Globals::ElapsedTime(start_t) << endl;
 
+        std::this_thread::sleep_for(std::chrono::microseconds(1000));
     }
+
+    logi << "[Phong] ContextPomdp::Step1x2x3 All MopedPred Time: " << Globals::ElapsedTime(start_t) << " agents_length: " << state.num << endl;
 
 
     if (CPUDoPrint && state.scenario_id == CPUPrintPID) {
