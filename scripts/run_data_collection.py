@@ -8,10 +8,24 @@ from clear_process import *
 from timeout import TimeoutMonitor
 
 from summit_simulator import print_flush,  SimulatorAccessories
+import logging
 
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt = '%m/%d/%Y %I:%M:%S %p',
+    handlers=[
+        logging.FileHandler("debug.log"),
+        logging.StreamHandler()
+    ],
+    filemode = 'w'
+)
 
 home = expanduser("~")
-root_path = os.path.join(home, 'driving_data')
+root_path = os.path.join(home, 'driving_data/DELETE')
+#root_path = os.path.join(home, 'driving_data_benchmark/ca1')
+
 if not os.path.isdir(root_path):
     os.makedirs(root_path)
 
@@ -136,7 +150,8 @@ def update_global_config(cmd_args):
 
     if 'random' in cmd_args.maploc:
         # config.summit_maploc = random.choice(['meskel_square', 'magic', 'highway', 'chandni_chowk', 'shi_men_er_lu'])
-        config.summit_maploc = random.choice(['meskel_square', 'magic', 'highway'])
+        #config.summit_maploc = random.choice(['magic', 'beijing', 'chandni_chowk', 'shi_men_er_lu'])
+        config.summit_maploc = random.choice(['magic'])
     else:
         config.summit_maploc = cmd_args.maploc
     config.random_seed = cmd_args.rands
@@ -300,6 +315,8 @@ def launch_summit_simulator(round, run, cmd_args):
     sim_accesories = SimulatorAccessories(cmd_args, config)
     sim_accesories.start()
 
+    out_file = open('debug.log', 'w')
+
     # ros connector for summit
     shell_cmd = 'roslaunch summit_connector connector.launch port:=' + \
                 str(config.port) + ' pyro_port:=' + str(config.pyro_port) + \
@@ -316,9 +333,12 @@ def launch_summit_simulator(round, run, cmd_args):
     if config.verbosity > 0:
         print_flush('[run_data_collection.py] ' + shell_cmd)
     summit_connector_proc = subprocess.Popen(shell_cmd.split(), env=config.ros_env,
-                                             cwd=os.path.join(ws_root, "src/summit_connector/launch"))
+                                             cwd=os.path.join(ws_root, "src/summit_connector/launch"),
+                                             stdout=out_file)
+
     wait_for(config.max_launch_wait, summit_connector_proc, '[launch] summit_connector')
     global_proc_queue.append((summit_connector_proc, "summit_connector_proc", None))
+
 
     return sim_accesories
 
@@ -417,7 +437,7 @@ if __name__ == '__main__':
     outter_timer = TimeoutMonitor(pid, int(config.timeout / config.time_scale),
                                   "ego_script_timer", config.verbosity)
     outter_timer.start()
-    # ros_proc = launch_ros()
+    #ros_proc = launch_ros()
 
 
     def exit_handler():
@@ -455,6 +475,9 @@ if __name__ == '__main__':
 
             sim_accesories = launch_summit_simulator(round, run, cmd_args)
 
+            # launch motion prediction server
+            moped_server = subprocess.Popen(["./agent_server_python.py"],  cwd="/home/cunjun/p3_catkin_ws_new/src/moped/")
+
             record_proc = launch_record_bag(round, run)
 
             if "pomdp" in cmd_args.drive_mode or "gamma" in cmd_args.drive_mode or "rollout" in cmd_args.drive_mode:
@@ -465,6 +488,8 @@ if __name__ == '__main__':
             # monitor_worker.terminate()
             # sim_accesories.terminate()
             # clear_queue(global_proc_queue, other_than='roscore')
+
+            #os.killpg(os.getpgid(moped_server.pid), signal.SIGTERM)
 
     print_flush("[run_data_collection.py] End of run_data_collection script")
     #

@@ -27,6 +27,8 @@ DATA_PATH = Path(summit_root)/'Data'
 class Summit(object):
 
     def __init__(self):
+        print('[PHONG] Running summit.py')
+
         address = rospy.get_param('address', '127.0.0.1')
         port = rospy.get_param('port', 2000)
         self.map_location = rospy.get_param('map_location', 'meskel_square')

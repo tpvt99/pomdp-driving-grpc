@@ -59,3 +59,5 @@ class SimulatorAccessories(Process):
         if self.verbosity > 0:
             print_flush("[summit_simulator.py] Spawning crowd")
         gamma_crowd.main(self.args)
+
+

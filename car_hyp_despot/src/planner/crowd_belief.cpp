@@ -197,8 +197,6 @@ void AgentBelief::Update(WorldModel& model, const AgentStruct& cur_agent, int nu
     if (num_intentions != belief_->size(1))
         belief_->Resize(num_intentions);
 
-
-
     AgentStruct past_agent = observable_;
     for (int mode = 0; mode < belief_->size(0); mode++)
         for (int intention = 0; intention < belief_->size(1); intention++) {
@@ -364,14 +362,18 @@ void CrowdBelief::Update(ACT_TYPE action, const State* state) {
 
     auto start_t = Time::now();
 
-    // Build neighbor agents
-    std::vector<AgentStruct> neighborAgents;
-    for (auto it= src_agent_map.begin(); it!=src_agent_map.end(); ++it) {
-        AgentStruct agent = *(it->second);
-        neighborAgents.push_back(agent);
-    }
 
-    std::map<int, std::vector<double>> predictionResults = callPython(neighborAgents);
+    std::map<int, std::vector<double>> predictionResults;
+
+    if (MopedParams::USE_MOPED)  {
+        // Build neighbor agents
+        std::vector<AgentStruct> neighborAgents;
+        for (auto it= src_agent_map.begin(); it!=src_agent_map.end(); ++it) {
+            AgentStruct agent = *(it->second);
+            neighborAgents.push_back(agent);
+        }
+        predictionResults = callPython(neighborAgents);
+    }
 
     if (MopedParams::PHONG_DEBUG) {
         logi << "[PHONG] CrowdBelief::Update buildAgentAndPredict Time: " << Globals::ElapsedTime(start_t) << endl;

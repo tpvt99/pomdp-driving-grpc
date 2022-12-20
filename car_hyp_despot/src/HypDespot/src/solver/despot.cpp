@@ -106,7 +106,10 @@ VNode* DESPOT::Trial(VNode* root, RandomStreams& streams,
 	logv << __FUNCTION__ << endl;
 	VNode* cur = root;
 
+    logi << "VNode* DESPOT::Trial" << endl;
+
 	int hist_size = history.Size();
+    int vnode_counts_trials = 0;
 
 	bool DoPrint = false;
 	float weu = 0;
@@ -186,6 +189,7 @@ VNode* DESPOT::Trial(VNode* root, RandomStreams& streams,
 		history.Add(qstar->edge(), cur->edge());
 
 		weu = WEU(cur);
+        vnode_counts_trials+= 1;
 
 	} while (cur->depth() < Globals::config.search_depth && weu > 0
 	         && !Globals::Timeout(Globals::config.time_per_move));
@@ -194,7 +198,10 @@ VNode* DESPOT::Trial(VNode* root, RandomStreams& streams,
 
 	history.Truncate(hist_size);
 
-	return cur;
+    logi << "VNode* DESPOT::Trial end with trials count: " << vnode_counts_trials << endl;
+
+
+    return cur;
 }
 
 Shared_VNode* DESPOT::Trial(Shared_VNode* root, RandomStreams& streams,
@@ -203,7 +210,10 @@ Shared_VNode* DESPOT::Trial(Shared_VNode* root, RandomStreams& streams,
                             Shared_SearchStatistics* statistics, bool despot_thread) {
 	Shared_VNode* cur = root;
 
-	int hist_size = history.Size();
+    logi << "Shared_VNode* DESPOT::Trial" << endl;
+
+
+    int hist_size = history.Size();
 	int threadID=MapThread(this_thread::get_id());
 	int trial_expansion_count = 0;
 
@@ -241,7 +251,6 @@ Shared_VNode* DESPOT::Trial(Shared_VNode* root, RandomStreams& streams,
 
 				TreeExpansionTime += Globals::ElapsedTime(start);
 				Expansion_done = true;
-				trial_expansion_count ++;
 			}
 		} catch (exception &e) {
 			cout << "Locking error: " << e.what() << endl;
@@ -308,12 +317,18 @@ Shared_VNode* DESPOT::Trial(Shared_VNode* root, RandomStreams& streams,
 		}
 		cur = next;
 		history.Add(qstar->edge(), cur->edge());
-	} while (cur->depth() < Globals::config.search_depth
+
+        trial_expansion_count++;
+
+    } while (cur->depth() < Globals::config.search_depth
 	         && WEU((VNode*) cur) > 0 &&
 	         !Globals::Timeout(Globals::config.time_per_move));
 
 	history.Truncate(hist_size);
-	return cur;
+
+    logi << "Shared_VNode* DESPOT::Trial end with trials count: " << trial_expansion_count << endl;
+
+    return cur;
 }
 void DESPOT::ExploitBlockers(VNode* vnode) {
   logv << __FUNCTION__ << endl;
@@ -422,8 +437,11 @@ void DESPOT::ExpandTreeServer(RandomStreams streams,
 	Shared_VNode* root = node_queue.receive(true, timeout);
 //	DEBUG(string_sprintf("thread %d", threadID));
 
-	logd << "time_out = "<< timeout << endl;
+    logi << "DESPOT::ExpandTreeServer start" << endl;
 
+
+	logd << "time_out = "<< timeout << endl;
+    int count_trials = 0;
 	do {
 		logd << "Trial " << num_trials << " start" << endl;
 
@@ -493,6 +511,7 @@ void DESPOT::ExpandTreeServer(RandomStreams streams,
 			cout << "Reaching max trials, stopping search" << endl;
 			break;
 		}
+        count_trials += 1;
 	} while (used_time /** (num_trials + 1.0) / num_trials*/ < timeout
 	         && !Globals::Timeout(Globals::config.time_per_move)
 	         && (((VNode*) root)->upper_bound() - ((VNode*) root)->lower_bound())
@@ -505,6 +524,9 @@ void DESPOT::ExpandTreeServer(RandomStreams streams,
 
 	Globals::MinusActiveThread();
 	print_queue.WakeOneThread();
+
+    logi << "DESPOT::ExpandTreeServer end with trials: " << count_trials << endl;
+
 }
 
 void PrintServer(MsgQueque<Shared_VNode>& print_queue, float timeout) {
@@ -532,6 +554,7 @@ VNode* DESPOT::ConstructTree(vector<State*>& particles, RandomStreams& streams,
 	}
 
 	Globals::RecordSearchStartTime();
+    logi << "DESPOT::ConstructTree" << endl;
 
 	double used_time = 0;
 	double explore_time = 0;
@@ -730,19 +753,30 @@ void DESPOT::InitLowerBound(VNode* vnode, ScenarioLowerBound* lower_bound,
                             RandomStreams& streams, History& history, bool b_init_root) {
 	logv << __FUNCTION__ << endl;
 
+    logi << "DESPOT::InitLowerBound" << endl;
+
 	streams.position(vnode->depth());
 	ValuedAction move = lower_bound->Value(vnode->particles(), streams,
 											   history);
-	move.value *= Globals::Discount(vnode->depth());
+    logi << "DESPOT::InitLowerBound 1" << endl;
+
+    move.value *= Globals::Discount(vnode->depth());
 
 	vnode->default_move(move);
-	vnode->lower_bound(move.value);
+    logi << "DESPOT::InitLowerBound 2" << endl;
+
+    vnode->lower_bound(move.value);
+    logi << "DESPOT::InitLowerBound 3" << endl;
+
 }
 
 void DESPOT::InitUpperBound(VNode* vnode, ScenarioUpperBound* upper_bound,
                             RandomStreams& streams, History& history) {
   logv << __FUNCTION__ << endl;
-	streams.position(vnode->depth());
+
+    logi << "DESPOT::InitUpperBound" << endl;
+
+    streams.position(vnode->depth());
 	double upper = upper_bound->Value(vnode->particles(), streams, history);
 	vnode->utility_upper_bound(upper * Globals::Discount(vnode->depth()));
 	upper = upper * Globals::Discount(vnode->depth())
@@ -754,7 +788,11 @@ void DESPOT::InitBounds(VNode* vnode, ScenarioLowerBound* lower_bound,
                         ScenarioUpperBound* upper_bound, RandomStreams& streams,
                         History& history, bool b_init_root) {
 	logv << __FUNCTION__ << endl;
-	InitLowerBound(vnode, lower_bound, streams, history, b_init_root);
+
+    logi << "DESPOT::InitBounds" << endl;
+
+
+    InitLowerBound(vnode, lower_bound, streams, history, b_init_root);
 
 	InitUpperBound(vnode, upper_bound, streams, history);
 
@@ -1830,7 +1868,11 @@ void DESPOT::Expand(VNode* vnode, ScenarioLowerBound* lower_bound,
 	vector<QNode*>& children = vnode->children();
 	logv << "- Expanding vnode " << vnode << endl;
 
-	if (use_GPU_ && !vnode->PassGPUThreshold())
+
+    logi << "DESPOT::Expand VNode" << endl;
+
+
+    if (use_GPU_ && !vnode->PassGPUThreshold())
 	{
 		const vector<State*>& particles = vnode->particles();
 		if (particles[0] == NULL) // switching point
@@ -1854,8 +1896,10 @@ void DESPOT::Expand(VNode* vnode, ScenarioLowerBound* lower_bound,
 	}
 
 	logv << "vnode level " << vnode->depth() << " " << vnode->legal_actions().size() << endl;
- 
-	for(ACT_TYPE action: vnode->legal_actions()){
+    logi << "DESPOT::Expand Vnode 1 " << endl;
+
+
+    for(ACT_TYPE action: vnode->legal_actions()){
 		logv << " Legal action " << action << endl;
 
 		//Create new Q-nodes for each action
@@ -1869,7 +1913,9 @@ void DESPOT::Expand(VNode* vnode, ScenarioLowerBound* lower_bound,
 		children[action] = qnode;
 	}
 
-	for(ACT_TYPE action: vnode->legal_actions()){
+    logi << "DESPOT::Expand Vnode 2 " << endl;
+
+    for(ACT_TYPE action: vnode->legal_actions()){
 		QNode* qnode = children[action];
 
 		if (use_GPU_ && vnode->PassGPUThreshold())
@@ -1882,6 +1928,7 @@ void DESPOT::Expand(VNode* vnode, ScenarioLowerBound* lower_bound,
 		}
 
 	}
+    logi << "DESPOT::Expand Vnode 3 " << endl;
 
 	if (use_GPU_ && vnode->PassGPUThreshold())
 		GPU_Expand_Action(vnode, lower_bound, upper_bound, model, streams,
@@ -1893,6 +1940,8 @@ void DESPOT::Expand(VNode* vnode, ScenarioLowerBound* lower_bound,
 	}
 
 	logv << "* Expansion complete!" << endl;
+    logi << "DESPOT::Expand Vnode completed " << endl;
+
 }
 
 void DESPOT::EnableDebugInfo(QNode* qnode) {
@@ -1924,6 +1973,7 @@ void DESPOT::Expand(QNode* qnode, ScenarioLowerBound* lb,
 	if (Globals::config.use_multi_thread_){
 		prior_ID=MapThread(this_thread::get_id());
 	}
+    logi << "DESPOT::Expand Qnode start" << endl;
 
 	VNode* parent = qnode->parent();
 	streams.position(parent->depth());
@@ -1943,7 +1993,8 @@ void DESPOT::Expand(QNode* qnode, ScenarioLowerBound* lb,
 
 	logv << "qnode "<< qnode << " has " << NumParticles << " particles" << endl;
 
-	for (int i = 0; i < NumParticles; i++) {
+    int stepCount = 0;
+	for (int i = 0; i < NumParticles; i++, stepCount++) {
 
 		State* particle = particles[i];
 		logv << " Original: " << *particle  << endl;
@@ -1971,7 +2022,10 @@ void DESPOT::Expand(QNode* qnode, ScenarioLowerBound* lb,
 		}
 	}
 
-	step_reward = Globals::Discount(parent->depth()) * step_reward
+    logi << "DESPOT::Expand Qnode with steps " << stepCount << endl;
+
+
+    step_reward = Globals::Discount(parent->depth()) * step_reward
 	              - Globals::config.pruning_constant;	//pruning_constant is used for regularization
 	qnode->step_reward = step_reward;
 
@@ -2010,10 +2064,17 @@ void DESPOT::Expand(QNode* qnode, ScenarioLowerBound* lb,
 
     logv << " New node created with " << vnode->legal_actions().size() <<" legal actions!" << endl;
 		children[obs] = vnode;
+
 	}
-	MakeObsNodeTime += Globals::ElapsedTime(start);
+
+    logi << "DESPOT::Expand Qnode done 1" << endl;
+
+    MakeObsNodeTime += Globals::ElapsedTime(start);
 
 	InitChildrenBounds(qnode, lb, ub, model, streams, history);
+
+    logi << "DESPOT::Expand Qnode done 2" << endl;
+
 }
 
 void DESPOT::InitChildrenBounds(QNode* qnode, ScenarioLowerBound* lb,
@@ -2024,6 +2085,8 @@ void DESPOT::InitChildrenBounds(QNode* qnode, ScenarioLowerBound* lb,
 	logv << "[InitChildrenBounds] for qnode " << qnode << endl;
 
 	bool doPrint = DESPOT::Print_nodes;
+
+    logi << "InitChildrenBounds1" << endl;
 
 	double lower_bound = qnode->step_reward;
 	double upper_bound = qnode->step_reward;
@@ -2071,6 +2134,7 @@ void DESPOT::InitChildrenBounds(QNode* qnode, ScenarioLowerBound* lb,
 		upper_bound += vnode->upper_bound();
 		InitBoundTime += Globals::ElapsedTime(start1);
 	}
+    logi << "InitChildrenBounds2" << endl;
 
 	qnode->Weight();//just to initialize the weight
 
@@ -2090,6 +2154,9 @@ void DESPOT::InitChildrenBounds(QNode* qnode, ScenarioLowerBound* lb,
 		     << qnode->utility_upper_bound() / qnode->Weight()
 		     << " ,weight= " << qnode->Weight() << " )" << endl;
 	}
+
+    logi << "InitChildrenBounds3" << endl;
+
 }
 
 void DESPOT::InitChildrenUpperBounds(QNode* qnode, ScenarioUpperBound* ub,
@@ -2256,7 +2323,10 @@ ValuedAction DESPOT::Evaluate(VNode* root, vector<State*>& particles,
 		particles[i]->scenario_id = i;
 	}
 
-	for (int i = 0; i < particles.size(); i++) {
+    logi << "ValuedAction DESPOT::Evaluate" << endl;
+
+    int countSteps = 0;
+	for (int i = 0; i < particles.size(); i++, countSteps++) {
 		State* particle = particles[i];
 		VNode* cur = root;
 		State* copy = model->Copy(particle);
@@ -2304,7 +2374,10 @@ ValuedAction DESPOT::Evaluate(VNode* root, vector<State*>& particles,
 		value += val;
 	}
 
-	return ValuedAction(OptimalAction(root).action, value / particles.size());
+    logi << "ValuedAction DESPOT::Evaluate with Steps " << countSteps <<  endl;
+
+
+    return ValuedAction(OptimalAction(root).action, value / particles.size());
 }
 
 void DESPOT::belief(Belief* b) {

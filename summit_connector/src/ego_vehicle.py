@@ -2,11 +2,12 @@
 
 from summit import Summit
 import carla
-
+import logging
 import random
 import math
 import numpy as np
 import sys
+from datetime import datetime
 
 import rospy
 import tf
@@ -27,6 +28,31 @@ import tf.transformations as tftrans
 import os
 os.environ["PYRO_LOGFILE"] = "pyro.log"
 os.environ["PYRO_LOGLEVEL"] = "DEBUG"
+
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format="%(asctime)s [%(levelname)s] %(message)s",
+#     datefmt = '%m/%d/%Y %I:%M:%S %p',
+#     handlers=[
+#         logging.FileHandler("debug.log"),
+#         logging.StreamHandler(stream=sys.stdout)
+#     ],
+#     filemode = 'a'
+# )
+
+# logger = logging.getLogger('ego_vehicle.py')
+# file_log_handler = logging.FileHandler('debug.log')
+# file_log_handler.setLevel(logging.INFO)
+# logger.addHandler(file_log_handler)
+# stderr_log_handler = logging.StreamHandler()
+# logger.addHandler(stderr_log_handler)
+# # nice output format
+# formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+# file_log_handler.setFormatter(formatter)
+# stderr_log_handler.setFormatter(formatter)
+
+def output_time():
+    return datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
 import Pyro4
 
@@ -432,6 +458,8 @@ class EgoVehicle(Summit):
         self.last_decision = lane_decision
 
     def update_gamma_control(self):
+        print('{} [PHONG] Ego_vehicle.py update_gamma_control() function'.format(output_time()))
+
         gamma = carla.RVOSimulator()
 
         gamma_id = 0
@@ -521,6 +549,8 @@ class EgoVehicle(Summit):
         self.broadcaster.sendTransform(static_transformStamped)
 
     def publish_odom(self):
+        print('{} [PHONG] Ego_vehicle.py publish_odom() function'.format(output_time()))
+
         # Check if result available.
         result = self.get_transform_wrt_odom_frame()
         if result is None:
@@ -613,6 +643,8 @@ class EgoVehicle(Summit):
             print(e)
 
     def publish_plan(self):
+        print('{} [PHONG] Ego_vehicle.py publish_plan() function'.format(output_time()))
+
         current_time = rospy.Time.now()
 
         gui_path = NavPath()
@@ -666,6 +698,8 @@ class EgoVehicle(Summit):
             last_loc = carla.Location(pos.x, pos.y, 0.1)
 
     def send_control_from_vel(self):
+        print('{} [PHONG] Ego_vehicle.py send_control_from_vel() function'.format(output_time()))
+
         control = self.actor.get_control()
         if self.control_mode == 'gamma':
             cmd_speed = min(self.gamma_cmd_speed, self.gamma_max_speed)
@@ -675,6 +709,9 @@ class EgoVehicle(Summit):
             cmd_speed = self.pomdp_cmd_speed
             cmd_steer = self.pp_cmd_steer
             kp, ki, kd, k, discount = 1.2, 0.5, 0.2, 0.8, 0.99
+            print('{} [PHONG] Ego_vehicle.py send_control_from_vel() function. cmd_speed {}, cmd_steer {}'.format(
+                output_time(), cmd_speed, cmd_steer))
+
 
         kp = self.KP
         ki = self.KI
@@ -737,11 +774,15 @@ class EgoVehicle(Summit):
         control.manual_gear_shift = True
         control.gear = 1
 
+        print('{} [PHONG] Ego_vehicle.py send_control_from_vel() function. throttle {}, steer {}'.format(
+            output_time(), control.throttle, control.steer))
         self.actor.apply_control(control)
 
     def send_control_from_acc(self):
         # Calculate control and send to CARLA.
         # print("controlling vehicle with acc={} cur_vel={}".format(self.cmd_accel, self.speed))
+        print('{} [PHONG] Ego_vehicle.py send_control_from_acc() function'.format(output_time()))
+
         control = self.actor.get_control()
 
         if self.control_mode == 'gamma':
@@ -770,6 +811,8 @@ class EgoVehicle(Summit):
         self.actor.apply_control(control)
 
     def update_path(self, lane_decision):
+        print('{} [PHONG] Ego_vehicle.py update_path() function'.format(output_time()))
+
         if lane_decision == REMAIN:
             return
 
@@ -802,7 +845,10 @@ class EgoVehicle(Summit):
                 self.path = new_path
 
     def update(self):
-        # start =time.time()
+        start =time.time()
+        print('{} [PHONG] Ego_vehicle.py updated() function, speed.x {} speed.y {} with  control.th {}, control.st {}'.format(
+                    output_time(), self.actor.get_velocity().x, self.actor.get_velocity().y, self.actor.get_control().throttle,
+                    self.actor.get_control().steer))
 
         if not self.agents_ready:
             return
@@ -840,11 +886,14 @@ class EgoVehicle(Summit):
         # self.publish_il_car_info()
         self.publish_plan()
 
-        # print('({}) update rate: {} Hz'.format(os.getpid(), 1 / max(time.time() - start, 0.001)))
+        print('{} [PHONG] Ego_vehicle ({}) update rate: {} Hz'.format(output_time(), os.getpid(), 1 / (time.time() - start)))
 
 
 
 if __name__ == '__main__':
+
+    print('{} [PHONG] Running ego_vehicle.py'.format(output_time()))
+
     script_start = time.time()
     rospy.init_node('ego_vehicle')
     init_time = rospy.Time.now()
@@ -853,6 +902,12 @@ if __name__ == '__main__':
 
     rate = rospy.Rate(20)
     while not rospy.is_shutdown():
+        xxx1 = time.time()
+
         ego_vehicle.update()
         rate.sleep()
+
+        xxx2 = time.time()
+        print('{} [PHONG] Running ego_vehicle.py elapsed time {}'.format(output_time(), round(xxx2 - xxx1,3)))
+
     ego_vehicle.dispose()
