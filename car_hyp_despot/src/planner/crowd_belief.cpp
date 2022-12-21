@@ -406,8 +406,6 @@ void CrowdBelief::Update(ACT_TYPE action, const State* state) {
         }
     }
 
-    // Py_XDECREF(object); This makes error but I do not know why
-
     logd << "[CrowdBelief::Update] " << "indexed_belief.size()=" << indexed_belief.size() << endl;
 
     if (MopedParams::PHONG_DEBUG)

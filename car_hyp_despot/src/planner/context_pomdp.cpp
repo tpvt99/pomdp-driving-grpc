@@ -417,7 +417,7 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
             ERR("state.agents[i].pos.x is NAN");
         }
 
-        std::this_thread::sleep_for(std::chrono::microseconds(1));
+        //std::this_thread::sleep_for(std::chrono::microseconds(1));
 
 
     } else {
@@ -438,7 +438,9 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
             }
         }
 
-        std::this_thread::sleep_for(std::chrono::microseconds(1000));
+        //std::this_thread::sleep_for(std::chrono::microseconds(500));  // 0.0008 slowdown
+        std::this_thread::sleep_for(std::chrono::microseconds(8000));  // 0.008 slowdown
+
     }
 
     logi << "[Phong] ContextPomdp::Step1x2x3 All MopedPred Time: " << Globals::ElapsedTime(start_t) << " agents_length: " << state.num << endl;

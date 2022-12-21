@@ -25,58 +25,59 @@ import agentinfo_pb2
 import agentinfo_pb2_grpc
 import numpy as np
 from moped_implementation.planner_wrapper import PlannerWrapper
-from server_helper import build_agent
-from numba.typed import List
 
 MAX_HISTORY_MOTION_PREDICTION = 20
+import pathlib
+current_dir = pathlib.Path(__file__).parent.resolve()
 
 class Greeter(agentinfo_pb2_grpc.MotionPredictionServicer):
+
+    def __init__(self):
+        self.planner = PlannerWrapper()
 
     def Predict(self, request, context):
         xy_pos_list = []
         agent_id_list = []
         start = time.time()
-        # for agentInfo in request.agentInfo:
-        #     x_pos = np.array(agentInfo.x)
-        #     y_pos = np.array(agentInfo.y)
-        #     #logging.info(f"Shape of x_pos is {x_pos.shape} and y_pos is {y_pos.shape}")
-        #     xy_pos = np.concatenate([x_pos[..., np.newaxis], y_pos[..., np.newaxis]], axis=1)  # shape (n,2)
-        #     # first axis, we pad width=0 at beginning and pad width=MAX_HISTORY_MOTION_PREDICTION-xy_pos.shape[0] at the end
-        #     # second axis (which is x and y axis), we do not pad anything as it does not make sense to pad anything
-        #     xy_pos = np.pad(xy_pos, pad_width=((0, MAX_HISTORY_MOTION_PREDICTION - xy_pos.shape[0]), (0, 0)),
-        #                     mode="edge")
-        #     xy_pos_list.append(xy_pos)
-        #     #logging.info(f"[P] Shape of x_pos is {x_pos.shape} and y_pos is {y_pos.shape} and after padd {xy_pos.shape}")
-        #
-        #     agent_id_list.append(agentInfo.agentId)
-
-        xy_pos_list = List()
-        agent_id_list = []
         for agentInfo in request.agentInfo:
             x_pos = np.array(agentInfo.x)
             y_pos = np.array(agentInfo.y)
-            xy_pos_list.append((x_pos, y_pos))
+            #logging.info(f"Shape of x_pos is {x_pos.shape} and y_pos is {y_pos.shape}")
+            xy_pos = np.concatenate([x_pos[..., np.newaxis], y_pos[..., np.newaxis]], axis=1)  # shape (n,2)
+            # first axis, we pad width=0 at beginning and pad width=MAX_HISTORY_MOTION_PREDICTION-xy_pos.shape[0] at the end
+            # second axis (which is x and y axis), we do not pad anything as it does not make sense to pad anything
+            xy_pos = np.pad(xy_pos, pad_width=((0, MAX_HISTORY_MOTION_PREDICTION - xy_pos.shape[0]), (0, 0)),
+                            mode="edge")
+            xy_pos_list.append(xy_pos)
             #logging.info(f"[P] Shape of x_pos is {x_pos.shape} and y_pos is {y_pos.shape} and after padd {xy_pos.shape}")
 
             agent_id_list.append(agentInfo.agentId)
 
+        #xy_pos_list = List()
+        # agent_id_list = []
+        # for agentInfo in request.agentInfo:
+        #     x_pos = np.array(agentInfo.x)
+        #     y_pos = np.array(agentInfo.y)
+        #     xy_pos_list.append((x_pos, y_pos))
+        #     #logging.info(f"[P] Shape of x_pos is {x_pos.shape} and y_pos is {y_pos.shape} and after padd {xy_pos.shape}")
+        #
+        #     agent_id_list.append(agentInfo.agentId)
+
         #agent_id_list = [agentInfo.agentId for agentInfo in list(request.agentInfo)]
         #tuple_of_agent_info = tuple([(tuple(agentInfo.x), tuple(agentInfo.y)) for agentInfo in list(request.agentInfo)])
         #agents_history = build_agent(tuple_of_agent_info)
-        agents_history = build_agent(xy_pos_list)
+        #agents_history = build_agent(xy_pos_list)
+        agents_history = np.stack(xy_pos_list)  # Shape (number_agents, observation_len, 2)
 
-        logging.info(f"Time for building agentInfo array: {time.time() - start}")
+
+        #logging.info(f"Time for building agentInfo array: {time.time() - start}")
         prediction_time = time.time()
 
-        # Shape (number_agents, observation_len, 2)
-
         # Simple simulation
-        planner = PlannerWrapper()
-        probs, predictions = planner.do_predictions(agents_history) # probs shape (number_agents,) predictions shape (number_agents, pred_len, 2)
 
-        #logging.info(f"[P] Shape of probs is {probs.shape} and predictions is {predictions.shape}")
+        # probs shape (number_agents,) predictions shape (number_agents, pred_len, 2)
+        probs, predictions = self.planner.do_predictions(agents_history)
 
-        logging.info(f"Time for prediction: {time.time() - prediction_time}")
         response_time = time.time()
 
         # Build response:
@@ -92,7 +93,7 @@ class Greeter(agentinfo_pb2_grpc.MotionPredictionServicer):
             response.probInfo.append(prob_info)
 
         end = time.time()
-        logging.info(f"Time for producing response: {end - response_time}")
+        #logging.info(f"Time for producing response: {end - response_time}")
         logging.info(f"Time for running end-to-end: {end - start}")
 
         return response
@@ -111,7 +112,7 @@ def serve():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(filename="/home/cunjun/p3_catkin_ws_new/src/moped/logfilexx.txt",
+    logging.basicConfig(filename=f"{current_dir}/logfilexxx.txt",
                         filemode='w',
                         format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
