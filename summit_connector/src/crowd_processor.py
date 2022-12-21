@@ -21,6 +21,8 @@ import Pyro4
 import time
 from datetime import datetime
 
+from async_settings import CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_HZ, PRINT_LOG
+
 def output_time():
     return datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
@@ -116,7 +118,8 @@ class CrowdProcessor(Summit):
             last_loc = carla.Location(pos.x, pos.y, 0.1)
 
     def update(self):
-        print('{} [PHONG] crowd_processor.py in update() function'.format(output_time()))
+        if PRINT_LOG:
+            print('{} [PHONG] crowd_processor.py in update() function'.format(output_time()))
 
         end_time = rospy.Time.now()
         elapsed = (end_time - init_time).to_sec()
@@ -293,7 +296,7 @@ if __name__ == '__main__':
     init_time = rospy.Time.now()
     crowd_processor = CrowdProcessor()
 
-    rate = rospy.Rate(10)
+    rate = rospy.Rate(CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_HZ)
     while not rospy.is_shutdown():
         xxx1 = time.time()
 
@@ -301,4 +304,5 @@ if __name__ == '__main__':
         rate.sleep()
 
         xxx2 = time.time()
-        print('{} [PHONG] Running crowd_processor.py elapsed time {}'.format(output_time(), round(xxx2 - xxx1, 3)))
+        if PRINT_LOG:
+            print('{} [PHONG] Running crowd_processor.py elapsed time {}'.format(output_time(), round(xxx2 - xxx1, 3)))

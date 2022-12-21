@@ -1,0 +1,36 @@
+
+# 10 times slower
+
+# PUREPURSUIT_UPDATE_FREQUENCY_IN_TIME  = 1 # Updating every 1 seconds -> Hz = 1
+#
+# CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_TIME = 1 # Updating every 1 seconds -> Hz = 1
+# CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_HZ = 1.0 / CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_TIME  # Updating every 1 seconds -> Hz = 1
+#
+# EGO_VEHICLE_UPDATE_FREQUENCY_IN_TIME = 0.5 # Updating every 0.5 seconds -> Hz = 2
+# EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ = 1.0 / EGO_VEHICLE_UPDATE_FREQUENCY_IN_TIME
+#
+# EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME = 0.2 # Updating every 0.5 seconds -> Hz = 2
+#
+# POMDP_UPDATE_FREQUENCY_IN_TIME = 3 # Updating every 3 seconds
+#
+# SUMMIT_TICK_FREQUENCY_IN_TIME = 0.3 # Tick every 3 seconds
+# SUMMIT_TICK_FREQUENCY_IN_HZ = 1.0 /  SUMMIT_TICK_FREQUENCY_IN_TIME# Tick every 3 seconds
+
+PRINT_LOG = False
+
+# ORIGNAL
+
+PUREPURSUIT_UPDATE_FREQUENCY_IN_TIME  = 0.1 # 0.1 # Updating every 1 seconds -> Hz = 1
+
+CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_HZ = 10 #10 # Updating every 1 seconds -> Hz = 1
+
+EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ = 20 #20
+
+EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME = 0.02 #0.02 # Updating every 0.5 seconds -> Hz = 2
+
+#POMDP_UPDATE_FREQUENCY_IN_TIME = 0.3 # Updating every 3 seconds
+
+# SUMMIT_TICK_FREQUENCY_IN_TIME = 0.03 # Tick every 3 seconds
+# SUMMIT_TICK_FREQUENCY_IN_HZ = 1.0 /  SUMMIT_TICK_FREQUENCY_IN_TIME# Tick every 3 seconds
+
+# No CHANGE

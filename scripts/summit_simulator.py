@@ -5,7 +5,7 @@ from os.path import expanduser
 
 summit_scripts = expanduser("~/summit/PythonAPI/examples")
 sys.path.append(summit_scripts)
-import gamma_crowd, spawn_imagery, spawn_meshes
+import gamma_crowd_slowsim, spawn_imagery, spawn_meshes
 
 
 def print_flush(msg):
@@ -57,7 +57,7 @@ class SimulatorAccessories(Process):
 
         # Spawn crowd.
         if self.verbosity > 0:
-            print_flush("[summit_simulator.py] Spawning crowd")
-        gamma_crowd.main(self.args)
+            print_flush("[summit_simulator.py] Spawning crowd slow sim")
+        gamma_crowd_slowsim.main(self.args)
 
 

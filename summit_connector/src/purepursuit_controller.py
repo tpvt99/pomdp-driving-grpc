@@ -18,6 +18,7 @@ from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
 from msg_builder.msg import car_info as CarInfo  # panpan
 
+from async_settings import PUREPURSUIT_UPDATE_FREQUENCY_IN_TIME, PRINT_LOG
 
 PURSUIT_DIST = 5.0  ##1.5 for golfcart
 RATIO_ANGULAR = 0.3
@@ -29,16 +30,6 @@ MAP_FRAME = 'map'
 const_speed = 0.47
 goal_reached = 0
 
-# logging.basicConfig(
-#     level=logging.INFO,
-#     format="%(asctime)s [%(levelname)s] %(message)s",
-#     datefmt = '%m/%d/%Y %I:%M:%S %p',
-#     handlers=[
-#         logging.FileHandler("debug.log"),
-#         logging.StreamHandler(stream=sys.stdout)
-#     ],
-#     filemode = 'a'
-# )
 
 def output_time():
     return datetime.now().strftime("%H:%M:%S.%f")[:-3]
@@ -119,7 +110,7 @@ class Pursuit(object):
         self.car_steer = 0.0
         self.path = Path()
         self.car_info = None
-        self.tm = rospy.Timer(rospy.Duration(0.1), self.cb_pose_timer)  ##0.2 for golfcart; 0.05
+        self.tm = rospy.Timer(rospy.Duration(PUREPURSUIT_UPDATE_FREQUENCY_IN_TIME), self.cb_pose_timer)  ##0.2 for golfcart; 0.05
         rospy.Subscriber("ego_state", CarInfo, self.cb_car_info, queue_size=1)
         self.cmd_steer_pub = rospy.Publisher("/purepursuit_cmd_steer", Float32, queue_size=1)
         self.length = 2.8
@@ -137,7 +128,8 @@ class Pursuit(object):
             print('car length {}, rear length {}'.format(self.length, self.rear_length))
 
     def cb_pose_timer(self, event):
-        print('{} purpusuit_controller.py cb_pose_timer() function'.format(output_time()))
+        if PRINT_LOG:
+            print('{} purpusuit_controller.py cb_pose_timer() function'.format(output_time()))
         if self.car_info is None:
             return
 
@@ -173,7 +165,8 @@ class Pursuit(object):
         return angle_diff(target, car_yaw)
 
     def publish_steer(self):
-        print('{} [PHONG] purepursuit.py publish_steer() function'.format(output_time()))
+        if PRINT_LOG:
+            print('{} [PHONG] purepursuit.py publish_steer() function'.format(output_time()))
 
         steer_to_pub = Float32()
         steer_to_pub.data = self.car_steer

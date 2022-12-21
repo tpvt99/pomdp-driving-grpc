@@ -137,7 +137,7 @@ def parse_data(txt_file):
                         pred_exo_list[cur_step] = []
                     num_agents = (len(line_split) - 1) / 5
                     agent_list = []
-                    for i in range(num_agents):
+                    for i in range(int(num_agents)):
                         start = 1 + i * 5
                         x = float(line_split[start])
                         y = float(line_split[start + 1])

@@ -9,7 +9,7 @@ import pandas as pd
 # This script is different from statistics_for_moped.py in which  the starting point of outputing agents does not
 # need to have that starting point
 
-OUTPUT_FOLDER = "/home/cunjun/driving_data_sparse/result/summit_process/"#"/home/cunjun/moped_data/summit/"
+OUTPUT_FOLDER = "/home/cunjun/driving_data_sparse3/result/summit_process/"#"/home/cunjun/moped_data/summit/"
 
 cap = 10
 
@@ -256,7 +256,7 @@ if __name__ == "__main__":
     parser.add_argument(
         '--folder',
         type=str,
-        default='/home/cunjun/driving_data_sparse/result/joint_pomdp_drive_mode/',
+        default='/home/cunjun/driving_data_sparse3/result/joint_pomdp_drive_mode/',
         help='Subfolder to check')
 
     flag = parser.parse_args().flag

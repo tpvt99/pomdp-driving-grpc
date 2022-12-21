@@ -23,8 +23,8 @@ logging.basicConfig(
 )
 
 home = expanduser("~")
-root_path = os.path.join(home, 'driving_data/DELETE')
-#root_path = os.path.join(home, 'driving_data_benchmark/ca1')
+root_path = os.path.join(home, 'driving_data/DELETE/cv1/')
+#root_path = os.path.join(home, 'driving_data_benchmark/gamma1_update')
 
 if not os.path.isdir(root_path):
     os.makedirs(root_path)
@@ -150,8 +150,8 @@ def update_global_config(cmd_args):
 
     if 'random' in cmd_args.maploc:
         # config.summit_maploc = random.choice(['meskel_square', 'magic', 'highway', 'chandni_chowk', 'shi_men_er_lu'])
-        #config.summit_maploc = random.choice(['magic', 'beijing', 'chandni_chowk', 'shi_men_er_lu'])
-        config.summit_maploc = random.choice(['magic'])
+        config.summit_maploc = random.choice(['magic', 'beijing', 'chandni_chowk', 'shi_men_er_lu'])
+        #config.summit_maploc = random.choice(['magic'])
     else:
         config.summit_maploc = cmd_args.maploc
     config.random_seed = cmd_args.rands
@@ -305,6 +305,7 @@ def launch_summit_simulator(round, run, cmd_args):
         summit_proc = subprocess.Popen(shell_cmd,
                                        cwd=os.path.join(home, "summit"),
                                        env=dict(config.ros_env, DISPLAY=''),
+                                       #env=dict(config.ros_env),
                                        shell=True,
                                        preexec_fn=os.setsid)
 
@@ -333,8 +334,7 @@ def launch_summit_simulator(round, run, cmd_args):
     if config.verbosity > 0:
         print_flush('[run_data_collection.py] ' + shell_cmd)
     summit_connector_proc = subprocess.Popen(shell_cmd.split(), env=config.ros_env,
-                                             cwd=os.path.join(ws_root, "src/summit_connector/launch"),
-                                             stdout=out_file)
+                                             cwd=os.path.join(ws_root, "src/summit_connector/launch"))
 
     wait_for(config.max_launch_wait, summit_connector_proc, '[launch] summit_connector')
     global_proc_queue.append((summit_connector_proc, "summit_connector_proc", None))
@@ -476,7 +476,8 @@ if __name__ == '__main__':
             sim_accesories = launch_summit_simulator(round, run, cmd_args)
 
             # launch motion prediction server
-            moped_server = subprocess.Popen(["./agent_server_python.py"],  cwd="/home/cunjun/p3_catkin_ws_new/src/moped/")
+            moped_server = subprocess.Popen(["./agent_server_python.py"],
+                                            cwd=f"{ws_root}/src/moped/")
 
             record_proc = launch_record_bag(round, run)
 

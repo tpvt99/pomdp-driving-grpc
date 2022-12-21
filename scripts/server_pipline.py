@@ -81,7 +81,7 @@ if __name__ == '__main__':
         print("Ececuting: "+shell_cmd)
         time.sleep(1)
 
-        shell_cmd = 'python launch_docker.py --port {} --gpu {} --recordbag {} --mode {}'.format(
+        shell_cmd = 'python3 launch_docker.py --port {} --gpu {} --recordbag {} --mode {}'.format(
                 config.port, config.gpu, config.record, config.mode)
 
         print("Executing: "+shell_cmd)
