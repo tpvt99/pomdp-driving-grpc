@@ -4,8 +4,8 @@ from util import *
 import carla
 
 import numpy as np
-
-
+import time
+from datetime import datetime
 import rospy
 import csv
 import math
@@ -29,6 +29,19 @@ MAP_FRAME = 'map'
 const_speed = 0.47
 goal_reached = 0
 
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format="%(asctime)s [%(levelname)s] %(message)s",
+#     datefmt = '%m/%d/%Y %I:%M:%S %p',
+#     handlers=[
+#         logging.FileHandler("debug.log"),
+#         logging.StreamHandler(stream=sys.stdout)
+#     ],
+#     filemode = 'a'
+# )
+
+def output_time():
+    return datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
 def dist(a, b):
     return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
@@ -124,6 +137,7 @@ class Pursuit(object):
             print('car length {}, rear length {}'.format(self.length, self.rear_length))
 
     def cb_pose_timer(self, event):
+        print('{} purpusuit_controller.py cb_pose_timer() function'.format(output_time()))
         if self.car_info is None:
             return
 
@@ -159,12 +173,18 @@ class Pursuit(object):
         return angle_diff(target, car_yaw)
 
     def publish_steer(self):
+        print('{} [PHONG] purepursuit.py publish_steer() function'.format(output_time()))
+
         steer_to_pub = Float32()
         steer_to_pub.data = self.car_steer
         self.cmd_steer_pub.publish(steer_to_pub)
 
 
 if __name__ == '__main__':
+
+
+    print('{} [PHONG] Running purepursuit.py'.format(output_time()))
+
     rospy.init_node('purepursuit')
     pursuit = Pursuit()
     rospy.spin()

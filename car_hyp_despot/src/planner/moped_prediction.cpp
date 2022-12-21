@@ -33,8 +33,6 @@ std::map<int, std::vector<double>> MotionPredictionClient::Predict(std::vector<A
             agentInfo->set_agenttype(tempAgent.type);
         }
 
-
-
         // Container for the data we expect from the server.
         agentinfo::PredictionResponse reply;
 

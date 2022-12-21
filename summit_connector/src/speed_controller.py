@@ -21,6 +21,10 @@ acc = 1.5
 delta = acc/freq
 max_speed = 5.0
 
+from datetime import datetime
+def output_time():
+    return datetime.now().strftime("%H:%M:%S.%f")[:-3]
+
 class SpeedController(object):
     def __init__(self):
         self.proximity = 10000000
@@ -85,6 +89,8 @@ class SpeedController(object):
         self.cmd_speed_pub.publish(cmd_speed)
         self.cmd_accel_pub.publish(cmd_accel)
 
+        print('{} [PHONG] speed_controller.py in compute_speed_and_publish() function, speed {}, acce {}'.format(output_time(), cmd_speed, cmd_accel))
+
     def cb_peds(self, msg):
         self.peds_pos = [[ped.pose.position.x, ped.pose.position.y] for ped in msg.agents]
 
@@ -94,6 +100,8 @@ class SpeedController(object):
         self.player_vel = [msg.car_vel.x, msg.car_vel.y]
 
 if __name__ == '__main__':
+    print('[PHONG] Running speed_controller.py')
+
     rospy.init_node('speed_controller')
     speed_controller = SpeedController()
     rospy.spin() 

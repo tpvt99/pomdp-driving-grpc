@@ -3,7 +3,7 @@
 from util import *
 import carla
 import sys
-
+import logging
 import numpy as np
 from collections import defaultdict
 
@@ -19,6 +19,11 @@ from msg_builder.msg import car_info as CarInfo  # panpan
 
 import Pyro4
 import time
+from datetime import datetime
+
+def output_time():
+    return datetime.now().strftime("%H:%M:%S.%f")[:-3]
+
 
 start_time = time.time()
 
@@ -111,6 +116,8 @@ class CrowdProcessor(Summit):
             last_loc = carla.Location(pos.x, pos.y, 0.1)
 
     def update(self):
+        print('{} [PHONG] crowd_processor.py in update() function'.format(output_time()))
+
         end_time = rospy.Time.now()
         elapsed = (end_time - init_time).to_sec()
 
@@ -122,7 +129,7 @@ class CrowdProcessor(Summit):
                 # len(self.world.get_actors())))
             self.agents_ready_pub.publish(True)
         else:
-        	pass
+            pass
             # print("[crowd_processor.py] {} percent of agents ready".format(
                 # len(self.world.get_actors()) / float(self.total_num_agents)))
 
@@ -260,15 +267,15 @@ class CrowdProcessor(Summit):
             agents_path_msg.agents.append(agent_paths_tmp)
 
         try:
-        	agents_msg.header.frame_id = 'map'
-        	agents_msg.header.stamp = current_time
-        	self.agents_pub.publish(agents_msg)
+            agents_msg.header.frame_id = 'map'
+            agents_msg.header.stamp = current_time
+            self.agents_pub.publish(agents_msg)
 
-        	agents_path_msg.header.frame_id = 'map'
-        	agents_path_msg.header.stamp = current_time
-        	self.agents_path_pub.publish(agents_path_msg)
+            agents_path_msg.header.frame_id = 'map'
+            agents_path_msg.header.stamp = current_time
+            self.agents_path_pub.publish(agents_path_msg)
         except Exception as e:
-        	print(e)
+            print(e)
 
         # self.do_update = False
         end_time = rospy.Time.now()
@@ -279,11 +286,19 @@ class CrowdProcessor(Summit):
 
 
 if __name__ == '__main__':
+
+    print('{} [PHONG] Running crowd_processor.py'.format(output_time()))
+
     rospy.init_node('crowd_processor')
     init_time = rospy.Time.now()
     crowd_processor = CrowdProcessor()
 
     rate = rospy.Rate(10)
     while not rospy.is_shutdown():
+        xxx1 = time.time()
+
         crowd_processor.update()
         rate.sleep()
+
+        xxx2 = time.time()
+        print('{} [PHONG] Running crowd_processor.py elapsed time {}'.format(output_time(), round(xxx2 - xxx1, 3)))

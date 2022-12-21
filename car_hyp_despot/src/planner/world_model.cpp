@@ -151,6 +151,7 @@ int WorldModel::MinStepToGoal(const PomdpState& state) {
 }
 
 void WorldModel::AgentStep(AgentStruct &agent, Random& random) {
+
     if (MopedParams::PHONG_DEBUG) {
         logi << "[PHONG] WorldModel::AgentStep (agent, Ra) agent_info before: ";
         agent.PhongAgentText(cout);
@@ -167,6 +168,7 @@ void WorldModel::AgentStep(AgentStruct &agent, Random& random) {
         logi << "[PHONG] WorldModel::AgentStep (agent, Ra) agent_info after: ";
         agent.PhongAgentText(cout);
     }
+
 }
 
 void WorldModel::AgentStep(AgentStruct &agent, double& random) {
@@ -1173,7 +1175,8 @@ bool WorldModel::IsGlobalGoal(const CarStruct& car) const {
 
 double WorldModel::PurepursuitAngle(const CarStruct& car,
                                     COORD& pursuit_point) const {
-    logi << "[PHONG] WorldModel::PurepursuitAngle(agent, pp)--22:" << endl;
+    if (MopedParams::PHONG_DEBUG)
+        logi << "[PHONG] WorldModel::PurepursuitAngle(agent, pp)--22:" << endl;
 
     logv << __FUNCTION__ << " start" << endl;
     COORD rear_pos;
@@ -1209,7 +1212,8 @@ double WorldModel::PurepursuitAngle(const CarStruct& car,
 
 double WorldModel::PurepursuitAngle(const AgentStruct& agent,
                                     COORD& pursuit_point) const {
-    logi << "[PHONG] WorldModel::PurepursuitAngle(agent, pp)--11:" << endl;
+    if (MopedParams::PHONG_DEBUG)
+        logi << "[PHONG] WorldModel::PurepursuitAngle(agent, pp)--11:" << endl;
 
     COORD rear_pos;
     rear_pos.x = agent.pos.x
@@ -1425,7 +1429,8 @@ void WorldModel::AddGammaAgent(const AgentStruct& agent, int id_in_sim) {
 
 void WorldModel::GammaSimulateAgents(AgentStruct agents[], int num_agents,
                                      CarStruct& car) {
-    logi << "[PHONG] WorldModel::GammaSimulateAgents:" << endl;
+    if (MopedParams::PHONG_DEBUG)
+        logi << "[PHONG] WorldModel::GammaSimulateAgents:" << endl;
 
     int threadID = GetThreadID();
 
