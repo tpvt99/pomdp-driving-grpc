@@ -53,29 +53,17 @@ class Greeter(agentinfo_pb2_grpc.MotionPredictionServicer):
 
             agent_id_list.append(agentInfo.agentId)
 
-        #xy_pos_list = List()
-        # agent_id_list = []
-        # for agentInfo in request.agentInfo:
-        #     x_pos = np.array(agentInfo.x)
-        #     y_pos = np.array(agentInfo.y)
-        #     xy_pos_list.append((x_pos, y_pos))
-        #     #logging.info(f"[P] Shape of x_pos is {x_pos.shape} and y_pos is {y_pos.shape} and after padd {xy_pos.shape}")
-        #
-        #     agent_id_list.append(agentInfo.agentId)
-
-        #agent_id_list = [agentInfo.agentId for agentInfo in list(request.agentInfo)]
-        #tuple_of_agent_info = tuple([(tuple(agentInfo.x), tuple(agentInfo.y)) for agentInfo in list(request.agentInfo)])
-        #agents_history = build_agent(tuple_of_agent_info)
-        #agents_history = build_agent(xy_pos_list)
         agents_history = np.stack(xy_pos_list)  # Shape (number_agents, observation_len, 2)
 
 
-        #logging.info(f"Time for building agentInfo array: {time.time() - start}")
         prediction_time = time.time()
 
         # Simple simulation
 
         # probs shape (number_agents,) predictions shape (number_agents, pred_len, 2)
+
+        #logging.info(f"Inputs shape: {agents_history.shape}")
+
         probs, predictions = self.planner.do_predictions(agents_history)
 
         response_time = time.time()
@@ -94,7 +82,7 @@ class Greeter(agentinfo_pb2_grpc.MotionPredictionServicer):
 
         end = time.time()
         #logging.info(f"Time for producing response: {end - response_time}")
-        logging.info(f"Time for running end-to-end: {end - start}")
+        #logging.info(f"Time for running end-to-end: {end - start}")
 
         return response
 

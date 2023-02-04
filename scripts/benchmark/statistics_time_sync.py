@@ -87,8 +87,13 @@ class GetTimeSyncAndAgentsInfo():
             self.connect_finish = float(line.split()[5][:-2])
 
         if "get car state at" in line:
-            t = float(line.split()[5].split("=")[-1])
-            self.time_car_state.append(t)
+            try:
+                t = float(line.split()[5].split("=")[-1])
+                self.time_car_state.append(t)
+            except:
+                pass
+
+
 
         if "MSG: receive" in line and "agents at time" in line:
             t = float(line.split()[6][:-1])
@@ -164,40 +169,46 @@ class GetTimeSyncAndAgentsInfo():
         for i in range(number_of_rows):
             key = list(self.exp_names)[i]
 
-            axs[0][0].boxplot(self.exp_names[key]['connect_finish_at'], positions=[i])
+            #axs[0][0].boxplot(self.exp_names[key]['connect_finish_at'], positions=[i])
+            axs[0][0].violinplot(self.exp_names[key]['connect_finish_at'], positions=[i],
+                                 showmeans=False, showmedians=True, showextrema=True)
 
-            axs[0][1].boxplot(self.exp_names[key]['total_agents'], positions=[i])
+            axs[0][1].violinplot(self.exp_names[key]['total_agents'], positions=[i],
+                                 showmeans=False, showmedians=True, showextrema=True)
 
             arrays = []
             for z in range(len(self.exp_names[key]['time_car_states'])):
                 vals = np.array(self.exp_names[key]['time_car_states'][z][1:-1]) - \
                                np.array(self.exp_names[key]['time_car_states'][z][0:-2])
                 arrays.extend(list(vals))
-
-            axs[0][2].boxplot(arrays, positions=[i])
+            axs[0][2].violinplot(arrays, positions=[i],
+                                 showmeans=False, showmedians=True, showextrema=True)
 
             arrays = []
             for z in range(len(self.exp_names[key]['time_agent_arrays'])):
                 vals = np.array(self.exp_names[key]['time_agent_arrays'][z][1:-1]) - \
                        np.array(self.exp_names[key]['time_agent_arrays'][z][0:-2])
                 arrays.extend(list(vals))
-
-            axs[1][0].boxplot(arrays, positions=[i])
+            axs[1][0].violinplot(arrays, positions=[i],
+                                 showmeans=False, showmedians=True, showextrema=True)
 
             arrays = []
             for z in range(len(self.exp_names[key]['agent_counts'])):
                 arrays.extend(self.exp_names[key]['agent_counts'][z])
-            axs[1][1].boxplot(arrays, positions=[i])
+            axs[1][1].violinplot(arrays, positions=[i],
+                                 showmeans=False, showmedians=True, showextrema=True)
 
             arrays = []
             for z in range(len(self.exp_names[key]['agent_steps_counts'])):
                 arrays.extend(self.exp_names[key]['agent_steps_counts'][z])
-            axs[1][2].boxplot(arrays, positions=[i])
+            axs[1][2].violinplot(arrays, positions=[i],
+                                 showmeans=False, showmedians=True, showextrema=True)
 
             arrays = []
             for z in range(len(self.exp_names[key]['agent_speeds'])):
                 arrays.extend(self.exp_names[key]['agent_speeds'][z])
-            axs[2][0].boxplot(arrays, positions=[i])
+            axs[2][0].violinplot(arrays, positions=[i],
+                                 showmeans=False, showmedians=True, showextrema=True)
 
             #axs[1][2].boxplot(self.exp_names[key]['agent_steps_counts'], positions=[i])
             #axs[2][0].boxplot(self.exp_names[key]['agent_speeds'], positions=[i])
@@ -212,10 +223,12 @@ class GetTimeSyncAndAgentsInfo():
         axs[2][0].set_title("Agent speed")
 
         # add x-tick labels
-        plt.setp(axs, xticks=[y for y in range(len(self.exp_names))],
-                 xticklabels=["ori", "tick_8e4", "tick_8e4", "tick_8e5"])
+        # plt.setp(axs, xticks=[y for y in range(len(self.exp_names))],
+        #          xticklabels=self.exp_names.keys())
 
-        #plt.setp(axs, xticks=[])
+        plt.setp(axs, xticks=[])
+        fig.legend(labels=self.exp_names.keys(), loc='lower center', ncol=3)
+        print([ax.get_legend_handles_labels() for ax in fig.axes])
         #fig.tight_layout()
         plt.legend()
         plt.show()
@@ -224,16 +237,14 @@ class GetTimeSyncAndAgentsInfo():
 if __name__ == "__main__":
     from average_statistics_of_1_data import filter_txt_files, collect_txt_files
 
-    FOLDER_PATHS = ['/home/cunjun/driving_data/representative/original_gamma_nosync/',
-                #'/home/cunjun/driving_data/representative/gamma_tick_3Hz_change_allHz/',
-                #'/home/cunjun/driving_data/representative/gamma_tick_30Hz_change_allHz/',
-                #'/home/cunjun/driving_data/representative/gamma_tick_3Hz_no_changeHz/',
-                #'/home/cunjun/driving_data/representative/gamma_tick_10Hz_change_allHz/',
-                '/home/cunjun/driving_data/representative/gamma_tick_30Hz_timescale1_planner_8e3/',
-                '/home/cunjun/driving_data/representative/gamma_tick_30Hz_timescale1_planner_8e4/',
-                '/home/cunjun/driving_data/representative/gamma_tick_30Hz_timescale1_planner_8e5/',
-
-                ]
+    FOLDER_PATHS = [
+        '/home/cunjun/driving_data/JAN/gamma_tick_3Hz_ts0_1_8e3/',
+        '/home/cunjun/driving_data/JAN/gamma_tick_3Hz_ts0_1_8e3_allHzscale/',
+        '/home/cunjun/driving_data/JAN/gamma_tick_3Hz_ts0_1_8e4/',
+        '/home/cunjun/driving_data/JAN/gamma_tick_3Hz_ts0_1_8e4_allHzscale/',
+        '/home/cunjun/driving_data/JAN/gamma_tick_3Hz_ts1_8e4/',
+        '/home/cunjun/driving_data/JAN/gamma_tick_30Hz_ts1_8e4/'
+    ]
 
     stats = GetTimeSyncAndAgentsInfo()
     for folder_path in FOLDER_PATHS:
