@@ -355,6 +355,10 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
         logd << "Path start " << world_model.path[0] << endl;
         logd << "Path length " << world_model.path.GetLength() << endl;
 
+        if (MopedParams::PHONG_REWARD_DEBUG) {
+            logi << "[Phong] ContextPomdp::Step 123 - goal-reward: " << reward << endl;
+        }
+
         ERR("");
         return true;
     }
@@ -366,16 +370,29 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
         reward = CrashPenalty(state);
 
         logv << "assigning collision reward " << reward << endl;
+
+        if (MopedParams::PHONG_REWARD_DEBUG) {
+            logi << "[Phong] ContextPomdp::Step 123 - crash-reward: " << reward << endl;
+        }
+
         return true;
     }
 
     // Smoothness control
     reward += ActionPenalty(GetAccelerationID(action));
 
+    if (MopedParams::PHONG_REWARD_DEBUG) {
+        logi << "[Phong] ContextPomdp::Step 123 - smooth-reward: " << ActionPenalty(GetAccelerationID(action)) << endl;
+    }
+
     // Speed control: Encourage higher speed
     double steering = GetSteering(action);
 
     reward += MovementPenalty(state, steering);
+
+    if (MopedParams::PHONG_REWARD_DEBUG) {
+        logi << "[Phong] ContextPomdp::Step 123 - speed-reward: " << MovementPenalty(state, steering) << endl;
+    }
 
     // State transition
     if (Globals::config.use_multi_thread_) {
@@ -405,7 +422,7 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
             neighborAgents.push_back(state.agents[i]);
         }
 
-        std::map<int, std::vector<double>> predictionResults = callPython(neighborAgents);
+        std::map<int, std::vector<double>> predictionResults = callPython(neighborAgents, state.car);
 
         if (MopedParams::PHONG_DEBUG) {
             logi << "[Phong] ContextPomdp::Step 123 buildAgentAndPredict Time: " << Globals::ElapsedTime(start_t) << endl;
@@ -521,7 +538,7 @@ bool ContextPomdp::Step(PomdpStateWorld &state, double rNum, int action,
             neighborAgents.push_back(state.agents[i]);
         }
 
-        std::map<int, std::vector<double>> predictionResults = callPython(neighborAgents);
+        std::map<int, std::vector<double>> predictionResults = callPython(neighborAgents, state.car);
 
         for (int i = 0; i < state.num; i++) {
             world_model.PhongAgentStep(state.agents[i], rNum, predictionResults);
@@ -550,6 +567,8 @@ void ContextPomdp::ForwardAndVisualize(const State *sample, int step) const {
     // sample won't change
     PomdpState *next_state = static_cast<PomdpState *>(Copy(sample));
 
+    // Sample  changes in coordHistory
+
     for (int i = 0; i < step; i++) {
         // forward
         next_state = PredictAgents(next_state);
@@ -558,6 +577,8 @@ void ContextPomdp::ForwardAndVisualize(const State *sample, int step) const {
         PrintStateCar(*next_state, string_sprintf("predicted_car_%d", i));
         PrintStateAgents(*next_state, string_sprintf("predicted_agents_%d", i));
     }
+
+
 }
 
 PomdpState* ContextPomdp::PredictAgents(const PomdpState *ped_state, int acc) const {

@@ -372,7 +372,7 @@ void CrowdBelief::Update(ACT_TYPE action, const State* state) {
             AgentStruct agent = *(it->second);
             neighborAgents.push_back(agent);
         }
-        predictionResults = callPython(neighborAgents);
+        predictionResults = callPython(neighborAgents, observed->car);
     }
 
     if (MopedParams::PHONG_DEBUG) {

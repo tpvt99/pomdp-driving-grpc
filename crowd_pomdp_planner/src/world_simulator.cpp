@@ -248,6 +248,11 @@ double WorldSimulator::StepReward(PomdpStateWorld& state, ACT_TYPE action) {
 
     if (worldModel.IsGlobalGoal(state.car)) {
         reward = ModelParams::GOAL_REWARD;
+
+        if (MopedParams::PHONG_REWARD_DEBUG) {
+            logi << "[Phong] WorldSimulator::StepReward - goal-reward: " << reward << endl;
+        }
+
         return reward;
     }
 
@@ -255,14 +260,29 @@ double WorldSimulator::StepReward(PomdpStateWorld& state, ACT_TYPE action) {
 
     if (state.car.vel > 1.0 && worldModel.InRealCollision(state, 120.0)) { /// collision occurs only when car is moving
         reward = ContextPomdp_model->CrashPenalty(state);
+
+        if (MopedParams::PHONG_REWARD_DEBUG) {
+            logi << "[Phong] WorldSimulator::StepReward - crash-reward: " << reward << endl;
+        }
+
         return reward;
     }
     // Smoothness control
     reward += ContextPomdp_model->ActionPenalty(action);
 
+    if (MopedParams::PHONG_REWARD_DEBUG) {
+        logi << "[Phong] WorldSimulator::StepReward - smooth-reward: " << ContextPomdp_model->ActionPenalty(action) << endl;
+    }
+
     // Speed control: Encourage higher speed
     reward += ContextPomdp_model->MovementPenalty(state,
                                                   ContextPomdp_model->GetSteering(action));
+
+    if (MopedParams::PHONG_REWARD_DEBUG) {
+        logi << "[Phong] WorldSimulator::StepReward - speed-reward: " << ContextPomdp_model->MovementPenalty(state,
+                                            ContextPomdp_model->GetSteering(action)) << endl;
+    }
+
     return reward;
 }
 

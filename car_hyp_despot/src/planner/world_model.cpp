@@ -1390,7 +1390,7 @@ void WorldModel::AddEgoGammaAgent(int id_in_sim, const CarStruct& car) {
 
 void WorldModel::AddGammaAgent(const AgentStruct& agent, int id_in_sim) {
     int threadID = GetThreadID();
-    logi << "[PHONG] WorldModel::AddGammaAgent: " << agent.id << endl;
+    //logi << "[PHONG] WorldModel::AddGammaAgent: " << agent.id << endl;
 
     double car_x, car_y, car_yaw, car_speed;
     car_x = agent.pos.x;
@@ -1523,7 +1523,7 @@ void WorldModel::AgentApplyGammaVel(AgentStruct& agent, COORD& rvo_vel) {
 }
 
 void WorldModel::EnsureMeanDirExist(int agent_id, int intention_id) {
-    logi << "[PHONG] WorldModel::EnsureMeanDirExist" << endl;
+    //logi << "[PHONG] WorldModel::EnsureMeanDirExist" << endl;
 
     auto it = ped_mean_dirs.find(agent_id);
     if (it == ped_mean_dirs.end()) {

@@ -17,7 +17,7 @@ MotionPredictionClient::MotionPredictionClient(std::shared_ptr<Channel> channel)
 
 // Assembles the client's payload, sends it and presents the response back
 // from the server.
-std::map<int, std::vector<double>> MotionPredictionClient::Predict(std::vector<AgentStruct> neighborAgents) {
+std::map<int, std::vector<double>> MotionPredictionClient::Predict(std::vector<AgentStruct> neighborAgents, CarStruct car) {
         // Data we are sending to the server.
         agentinfo::PredictionRequest request;
 
@@ -33,6 +33,18 @@ std::map<int, std::vector<double>> MotionPredictionClient::Predict(std::vector<A
             agentInfo->set_agenttype(tempAgent.type);
         }
 
+        // Adding car info
+        std::vector<COORD> carHist = car.coordHistory.coord_history;
+        agentinfo::AgentInfo *agentInfo = request.add_agentinfo();
+        for (unsigned int i = 0; i < carHist.size(); i++) {
+            agentInfo->add_x(carHist[i].x);
+            agentInfo->add_y(carHist[i].y);
+            //std::cout << " car x-y: " << carHist[i].x << " - " << carHist[i].y;
+        }
+        //std::cout << std::endl;
+        agentInfo->set_agentid(-1);
+        agentInfo->set_agenttype(AgentType::car);
+
         // Container for the data we expect from the server.
         agentinfo::PredictionResponse reply;
 
@@ -47,7 +59,7 @@ std::map<int, std::vector<double>> MotionPredictionClient::Predict(std::vector<A
         std::map<int, std::vector<double>> results;
 
         if (status.ok()) {
-            //std::cout << "GRPC Call Success" << std::endl;
+            std::cout << "GRPC Call Success" << " size " << reply.agentinfo_size() << std::endl;
             for (int i = 0; i < reply.agentinfo_size(); i++) {
                 std::vector<double> returnAgentInfo;
 
@@ -72,11 +84,11 @@ std::map<int, std::vector<double>> MotionPredictionClient::Predict(std::vector<A
         }
 }
 
-std::map<int, std::vector<double>> callPython(std::vector<AgentStruct> neighborAgents) {
+std::map<int, std::vector<double>> callPython(std::vector<AgentStruct> neighborAgents, CarStruct car) {
     // Instantiate the client. It requires a channel, out of which the actual RPCs
     // are created. This channel models a connection to an endpoint specified by
     // the argument "--target=" which is the only expected argument.
     // We indicate that the channel isn't authenticated (use of
     // InsecureChannelCredentials()).
-    return mopedClient.Predict(neighborAgents);
+    return mopedClient.Predict(neighborAgents, car);
 }

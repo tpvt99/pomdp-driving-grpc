@@ -266,7 +266,7 @@ bool Controller::RunStep(despot::Solver* solver, World* world, Logger* logger) {
         logi << "[PHONG] Controller::RunStep 3 - ForwardAndVisualize:" << endl;
 
     static_cast<const ContextPomdp*>(model_)->ForwardAndVisualize(
-            particles[0], 10);
+            particles[0], 30);
     // predict states for search
     if (MopedParams::PHONG_DEBUG)
         logi << "[PHONG] Controller::RunStep 4 - PredictAgents:" << endl;
