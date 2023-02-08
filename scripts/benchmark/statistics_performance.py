@@ -4,6 +4,8 @@ import numpy as np
 import fnmatch
 import sys
 import math
+import matplotlib as mpl
+import matplotlib.lines as mlines
 
 cap = 10
 
@@ -36,6 +38,10 @@ class GetPerformanceInfo():
         self.list_rewards = []
         self.list_speeds = []
 
+        # Reward performance
+        self.prediction_rewards = {'goal':[], 'collision':[], 'smooth':[], 'speed':[]} # A list of list, length of inner list = many
+        self.step_rewards = {'goal':[], 'collision':[], 'smooth':[], 'speed':[]} # A list of list, length of inner list = number actions
+
 
         self.reset_per_file_variables()
 
@@ -67,6 +73,8 @@ class GetPerformanceInfo():
         self.execution_step = 0
         self.reading_tree = False
         self.start_reading = False
+        self.sub_prediction_reward = {'goal': [], 'collision': [], 'smooth': [], 'speed': []}  # A list of number
+        self.sub_step_reward = {'goal': [], 'collision': [], 'smooth': [], 'speed': []}  # A list of number
 
         self.new_read = True
 
@@ -178,6 +186,29 @@ class GetPerformanceInfo():
             self.collision_flag = True
             self.collision_counts_per_folder += 1
 
+        if "smooth-reward" in line:
+            if "WorldSimulator::StepReward" in line:
+                self.sub_step_reward['smooth'].append(float(line.split(' ')[-1]))
+            elif "ContextPomdp::Step 123" in line:
+                self.sub_prediction_reward['smooth'].append(float(line.split(' ')[-1]))
+        if "crash-reward" in line:
+            if "WorldSimulator::StepReward" in line:
+                self.sub_step_reward['collision'].append(float(line.split(' ')[-1]))
+            elif "ContextPomdp::Step 123" in line:
+                self.sub_prediction_reward['collision'].append(float(line.split(' ')[-1]))
+        if "goal-reward" in line:
+            if "WorldSimulator::StepReward" in line:
+                self.sub_step_reward['goal'].append(float(line.split(' ')[-1]))
+            elif "ContextPomdp::Step 123" in line:
+                self.sub_prediction_reward['goal'].append(float(line.split(' ')[-1]))
+        if "speed-reward" in line:
+            if "WorldSimulator::StepReward" in line:
+                self.sub_step_reward['speed'].append(float(line.split(' ')[-1]))
+            elif "ContextPomdp::Step 123" in line:
+                self.sub_prediction_reward['speed'].append(float(line.split(' ')[-1]))
+
+
+
     def finish(self, exp_name):
         self.new_read = True
 
@@ -205,6 +236,11 @@ class GetPerformanceInfo():
             self.list_traveled_dist = []
             self.list_rewards = []
             self.list_speeds = []
+
+            self.prediction_rewards = {'goal': [], 'collision': [], 'smooth': [],
+                                       'speed': []}  # A list of list, length of inner list = many
+            self.step_rewards = {'goal': [], 'collision': [], 'smooth': [],
+                                 'speed': []}  # A list of list, length of inner list = number actions
 
         self.file_counts_per_folder += 1
 
@@ -252,6 +288,10 @@ class GetPerformanceInfo():
             self.list_rewards.append(float(np.mean(self.rewards)))
             self.list_speeds.append(float(np.mean(self.speeds)))
 
+            for k in ['goal', 'collision', 'smooth', 'speed']:
+                self.step_rewards[k].append(self.sub_step_reward[k])
+                self.prediction_rewards[k].append(self.sub_prediction_reward[k])
+
 
         self.exp_names[exp_name] = {
             'moped_steps': self.list_moped_steps, # list of list
@@ -271,6 +311,9 @@ class GetPerformanceInfo():
             'avg_speeds': self.list_speeds, # list of list
 
             'collision_counts': self.collision_counts_per_folder/self.file_counts_per_folder, # number
+
+            'step_rewards': self.step_rewards, # list of list
+            'prediction_rewards': self.prediction_rewards, # list of list
         }
 
     def subplot(self, exp_name, exp_name_index, what_to_plot, ax_row, ax_col, version1, axs):
@@ -376,10 +419,93 @@ class GetPerformanceInfo():
         # add x-tick labels
         # plt.setp(axs, xticks=[y for y in range(len(self.exp_names))],
         #          xticklabels=["ori", "3Hz_ts01_8e4", "3Hz_ts1_8e4", "30Hz_ts1_8e4"])
-        fig.legend(labels=self.exp_names.keys(), loc='center right', ncol=1)
+        ### Get coloring
+        color_lines = []
+        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+        for i in range(len(self.exp_names.keys())):
+            blue_line = mlines.Line2D([], [], color=colors[i], label=list(self.exp_names.keys())[i])
+            color_lines.append(blue_line)
+
+        #fig.legend(labels=self.exp_names.keys(), loc='center right', ncol=1, labelcolor=mpl.rcParams["axes.prop_cycle"])
+        fig.legend(handles=color_lines, loc='center right', ncol=1)
         print([ax.get_legend_handles_labels() for ax in fig.axes])
         plt.setp(axs, xticks=[])
         fig.tight_layout()
+        plt.legend()
+        plt.show()
+
+    def draw_rewards(self):
+        number_of_exp = len(self.exp_names)
+
+        def subplot2(exp_name, exp_name_index, what_to_plot, sub_reward, ax_row, ax_col, axs):
+            arrays = []
+            for zz in range(len(self.exp_names[exp_name][what_to_plot][sub_reward])):
+                arrays.append(np.mean(np.array(self.exp_names[exp_name][what_to_plot][sub_reward][zz])))
+            print(arrays)
+            axs[ax_row][ax_col].violinplot(arrays, positions=[exp_name_index],
+                                           showmeans=True, showmedians=False, showextrema=False)
+
+
+            axs[ax_row][ax_col].text(x=exp_name_index, y=np.mean(arrays) * 1.05,
+                                         s=round(float(np.mean(arrays)), 5), ha="center")
+
+
+        fig, axs = plt.subplots(2, 4, figsize=(10, 20))  # we plot 4 values so we need 2 times 2. Can be adjusted if draw more than that
+
+        for i in range(number_of_exp):
+            key = list(self.exp_names)[i]
+
+            print(f"key: {key}")
+
+            subplot2(exp_name=key, exp_name_index=i, what_to_plot='prediction_rewards', sub_reward='goal', ax_row=0, ax_col=0,
+                          axs=axs)
+
+            subplot2(exp_name=key, exp_name_index=i, what_to_plot='prediction_rewards', sub_reward='collision', ax_row=0, ax_col=1, axs=axs)
+
+            subplot2(exp_name=key, exp_name_index=i, what_to_plot='prediction_rewards', sub_reward='smooth', ax_row=0, ax_col=2,
+                         axs=axs)
+
+            subplot2(exp_name=key, exp_name_index=i, what_to_plot='prediction_rewards', sub_reward='speed', ax_row=0, ax_col=3,
+                          axs=axs)
+
+            subplot2(exp_name=key, exp_name_index=i, what_to_plot='step_rewards', sub_reward='goal', ax_row=1, ax_col=0,
+                          axs=axs)
+
+            subplot2(exp_name=key, exp_name_index=i, what_to_plot='step_rewards', sub_reward='collision', ax_row=1, ax_col=1, axs=axs)
+
+            subplot2(exp_name=key, exp_name_index=i, what_to_plot='step_rewards', sub_reward='smooth', ax_row=1, ax_col=2,
+                         axs=axs)
+
+            subplot2(exp_name=key, exp_name_index=i, what_to_plot='step_rewards', sub_reward='speed', ax_row=1, ax_col=3,
+                          axs=axs)
+
+        axs[0][0].set_title("Prediction Goal Rewards")
+        axs[0][1].set_title("Prediction Coolision Rewards")
+        axs[0][2].set_title("Prediction Smooth Rewards")
+        axs[0][3].set_title("Prediction Speed Rewards")
+
+        axs[0][0].margins(y=0.1)
+
+        axs[1][0].set_title("Step Goal Rewards")
+        axs[1][1].set_title("Step Coolision Rewards")
+        axs[1][2].set_title("Step Smooth Rewards")
+        axs[1][3].set_title("Step Speed Rewards")
+
+        axs[0][0].margins(y=0.1)
+
+
+        color_lines = []
+        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22',
+                  '#17becf']
+        for i in range(len(self.exp_names.keys())):
+            blue_line = mlines.Line2D([], [], color=colors[i], label=list(self.exp_names.keys())[i])
+            color_lines.append(blue_line)
+
+        # fig.legend(labels=self.exp_names.keys(), loc='center right', ncol=1, labelcolor=mpl.rcParams["axes.prop_cycle"])
+        fig.legend(handles=color_lines, loc='center right', ncol=1)
+        print([ax.get_legend_handles_labels() for ax in fig.axes])
+        plt.setp(axs, xticks=[])
+        #fig.tight_layout()
         plt.legend()
         plt.show()
 
@@ -397,15 +523,54 @@ if __name__ == "__main__":
     #     '/home/cunjun/driving_data/JAN/gamma_tick_30Hz_ts1_8e4/'
     # ]
 
+    # cv/ca
+    # FOLDER_PATHS = [
+    #     '/home/cunjun/driving_data/DEL/cv_tick_15Hz_ts_0_5/',
+    #     '/home/cunjun/driving_data/DEL/cv15hz_t0_5/',
+    #     '/home/cunjun/driving_data/DEL/cv15hz_t0_5_slowdownHz2times/',
+    #     '/home/cunjun/driving_data/DEL/cv10hz_t0_33/',
+    #     '/home/cunjun/driving_data/DEL/ca10hz_t0_33/',
+    #     '/home/cunjun/driving_data/DEL/cv10hz_t0_33_slowdownHz3times/',
+    #     '/home/cunjun/driving_data/DEL/ca10hz_t0_33_slowdownHz3times/',
+    #
+    # ]
+
+    # for normal performance
     FOLDER_PATHS = [
-        #'/home/cunjun/driving_data/JAN/gamma_tick_3Hz_ts0_1_8e3_allHzscale/',
-        #'/home/cunjun/driving_data/JAN/gamma_tick_3Hz_ts0_1_8e4_allHzscale/',
-        '/home/cunjun/driving_data/DEL/cv_tick_15Hz_ts_0_5/',
-        '/home/cunjun/driving_data/JAN/lanegcn_0_5Hz_ts0_016_allHzscale10down/',
+
+        #'/home/cunjun/driving_data/DEL/knnsocial_3Hz_ts0_1_allHzscale/',too slow, use 1Hz
+        #'/home/cunjun/driving_data/DEL/lstmdefault_3Hz_ts0_1_allHzscale/',too slow, use 1Hz
+        #'/home/cunjun/driving_data/DEL/lstmsocial_3Hz_ts0_1_allHzscale/',too slow, use 1Hz
+        #'/home/cunjun/driving_data/DEL/lanegcn0_6hz_t0_02_slowdownHz50times/', # still a lot. reduce to 1Hz (30 times)
+        #'/home/cunjun/driving_data/DEL/hivt0_6hz_t0_02_slowdownHz50times/',# still a lot. reduce to 1Hz (30 times)
+
+        '/home/cunjun/driving_data/DEL/hivt1hz_t0_03_slowdownHz30times/',
+        '/home/cunjun/driving_data/DEL/lanegcn1hz_t0_03_slowdownHz30times/',
+        #'/home/cunjun/driving_data/DEL/knnsocial1hz_t0_03_slowdownHz30times/',
         '/home/cunjun/driving_data/DEL/knndefault_3Hz_ts0_1_allHzscale/',
-        '/home/cunjun/driving_data/DEL/knnsocial_3Hz_ts0_1_allHzscale/',
-        '/home/cunjun/driving_data/DEL/lstmdefault_3Hz_ts0_1_allHzscale/',
-        '/home/cunjun/driving_data/DEL/lstmsocial_3Hz_ts0_1_allHzscale/',
+        '/home/cunjun/driving_data/DEL/knnsocial1hz_t0_03_slowdownHz15times_2/',
+        '/home/cunjun/driving_data/DEL/lstmdefault1hz_t0_03_slowdownHz15times_2/',
+        '/home/cunjun/driving_data/DEL/lstmsocial1hz_t0_03_slowdownHz30times/',
+
+        #'/home/cunjun/driving_data/DEL/cv10hz_t0_33_slowdownHz3times/',
+        #'/home/cunjun/driving_data/DEL/ca10hz_t0_33_slowdownHz3times/',
+        '/home/cunjun/driving_data/DEL/cv10hz_t0_33_slowdownHz3times/', # a bit less, slow down not too much, using time.sleep(0.00008)
+        '/home/cunjun/driving_data/DEL/ca10hz_t0_33_slowdownHz3times/',# still too much
+        # a bit less, slow down not too much, using time.sleep(0.00008)
+
+    ]
+
+    # for rewards
+    FOLDER_PATHS = [
+
+        '/home/cunjun/driving_data/log_rewards/hivt1hz/',
+        '/home/cunjun/driving_data/log_rewards/lanegcn1hz/',
+        '/home/cunjun/driving_data/log_rewards/knndefault3hz/',
+        '/home/cunjun/driving_data/log_rewards/knnsocial1hz/',
+        '/home/cunjun/driving_data/log_rewards/lstmdefault1hz/',
+        '/home/cunjun/driving_data/log_rewards/lstmsocial1hz/',
+        '/home/cunjun/driving_data/log_rewards/ca10hz/',
+        '/home/cunjun/driving_data/log_rewards/cv10hz/',
 
     ]
 
@@ -425,4 +590,4 @@ if __name__ == "__main__":
             stats.finish(experiment_name)
 
 
-    stats.draw()
+    stats.draw_rewards()

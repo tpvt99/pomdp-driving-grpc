@@ -1,5 +1,6 @@
 #!/home/cunjun/anaconda3/envs/conda38/bin/python
 
+
 # Copyright 2015 gRPC authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -56,14 +57,13 @@ class Greeter(agentinfo_pb2_grpc.MotionPredictionServicer):
         agents_history = np.stack(xy_pos_list)  # Shape (number_agents, observation_len, 2)
 
 
-        prediction_time = time.time()
+        #prediction_time = time.time()
 
         # Simple simulation
 
         # probs shape (number_agents,) predictions shape (number_agents, pred_len, 2)
 
         #logging.info(f"Inputs shape: {agents_history.shape}")
-
         probs, predictions = self.planner.do_predictions(agents_history)
 
         response_time = time.time()

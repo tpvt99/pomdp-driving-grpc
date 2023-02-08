@@ -43,7 +43,9 @@ class SimulatorAccessories(Process):
             lane_change_probability=0.0,
             cross_probability=0.1,
             stuck_speed=0.2,
-            stuck_duration=5.0)
+            stuck_duration=15.0)    # 5 secs is original,
+                                    # 3 times slower, 10 times slower -> 10 secs (cv/ca),
+                                    # 15 times slower, 30 times slower 50 secs (lanegcn/hivt)
 
     def run(self):
         if self.verbosity > 0:

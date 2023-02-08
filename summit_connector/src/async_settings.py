@@ -1,36 +1,56 @@
 
-# 10 times slower
-
-# PUREPURSUIT_UPDATE_FREQUENCY_IN_TIME  = 1 # Updating every 1 seconds -> Hz = 1
-#
-# CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_TIME = 1 # Updating every 1 seconds -> Hz = 1
-# CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_HZ = 1.0 / CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_TIME  # Updating every 1 seconds -> Hz = 1
-#
-# EGO_VEHICLE_UPDATE_FREQUENCY_IN_TIME = 0.5 # Updating every 0.5 seconds -> Hz = 2
-# EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ = 1.0 / EGO_VEHICLE_UPDATE_FREQUENCY_IN_TIME
-#
-# EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME = 0.2 # Updating every 0.5 seconds -> Hz = 2
-#
-# POMDP_UPDATE_FREQUENCY_IN_TIME = 3 # Updating every 3 seconds
-#
-# SUMMIT_TICK_FREQUENCY_IN_TIME = 0.3 # Tick every 3 seconds
-# SUMMIT_TICK_FREQUENCY_IN_HZ = 1.0 /  SUMMIT_TICK_FREQUENCY_IN_TIME# Tick every 3 seconds
-
 PRINT_LOG = False
 
 # ORIGNAL
 
-PUREPURSUIT_UPDATE_FREQUENCY_IN_TIME  = 0.1 # 0.1 # Updating every 1 seconds -> Hz = 1
+# PUREPURSUIT_UPDATE_FREQUENCY_IN_TIME = 0.33 # 0.1 # Updating every 1 seconds -> Hz = 1 | 5.0 for 0.6 Hz, 0.02 ts,  if 10 times slower, use 1
+#
+# CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_HZ = 3 #10 # Updating every 1 seconds -> Hz = 1,  if 10 times slower, use 1
+#
+# EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ = 7 #20, if 10 times slower, use 2
+#
+# EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME = 0.06 #0.02 # Updating every 0.5 seconds -> Hz = 2, if 10 times slower, use 0.2
 
-CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_HZ = 10 #10 # Updating every 1 seconds -> Hz = 1
+## 3 times slower (CV/CA)
 
-EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ = 20 #20
+# PUREPURSUIT_UPDATE_FREQUENCY_IN_TIME = 0.3 # 0.1 # Updating every 1 seconds -> Hz = 1 | 5.0 for 0.6 Hz, 0.02 ts,  if 10 times slower, use 1
+#
+# CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_HZ = 3.333 #10 # Updating every 1 seconds -> Hz = 1,  if 10 times slower, use 1
+#
+# EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ = 6.667 #20, if 10 times slower, use 2
+#
+# EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME = 0.06 #0.02 # Updating every 0.5 seconds -> Hz = 2, if 10 times slower, use 0.2
 
-EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME = 0.02 #0.02 # Updating every 0.5 seconds -> Hz = 2
+## 10 times slower (assume same  computation)
 
-#POMDP_UPDATE_FREQUENCY_IN_TIME = 0.3 # Updating every 3 seconds
+PUREPURSUIT_UPDATE_FREQUENCY_IN_TIME = 1 # 0.1 # Updating every 1 seconds -> Hz = 1 | 5.0 for 0.6 Hz, 0.02 ts,  if 10 times slower, use 1
 
-# SUMMIT_TICK_FREQUENCY_IN_TIME = 0.03 # Tick every 3 seconds
-# SUMMIT_TICK_FREQUENCY_IN_HZ = 1.0 /  SUMMIT_TICK_FREQUENCY_IN_TIME# Tick every 3 seconds
+CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_HZ = 1 #10 # Updating every 1 seconds -> Hz = 1,  if 10 times slower, use 1
+
+EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ = 2 #20, if 10 times slower, use 2
+
+EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME = 0.2 #0.02 # Updating every 0.5 seconds -> Hz = 2, if 10 times slower, use 0.2
+
+## 15 times slower
+
+# PUREPURSUIT_UPDATE_FREQUENCY_IN_TIME = 1.5 # 0.1 # Updating every 1 seconds -> Hz = 1 | 5.0 for 0.6 Hz, 0.02 ts,  if 10 times slower, use 1
+#
+# CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_HZ = 0.667 #10 # Updating every 1 seconds -> Hz = 1,  if 10 times slower, use 1
+#
+# EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ = 1.33 #20, if 10 times slower, use 2
+#
+# EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME = 0.3 #0.02 # Updating every 0.5 seconds -> Hz = 2, if 10 times slower, use 0.2
+
+
+## 30 times slower (lanegcn/hivt)
+
+# PUREPURSUIT_UPDATE_FREQUENCY_IN_TIME = 3 # 0.1 # Updating every 1 seconds -> Hz = 1 | 5.0 for 0.6 Hz, 0.02 ts,  if 10 times slower, use 1
+#
+# CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_HZ = 0.333 #10 # Updating every 1 seconds -> Hz = 1,  if 10 times slower, use 1
+#
+# EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ = 0.667 #20, if 10 times slower, use 2
+#
+# EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME = 0.6 #0.02 # Updating every 0.5 seconds -> Hz = 2, if 10 times slower, use 0.2
+#
 
 # No CHANGE

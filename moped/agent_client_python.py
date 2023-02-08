@@ -30,9 +30,9 @@ def run():
         stub = agentinfo_pb2_grpc.MotionPredictionStub(channel)
 
         # Build request
-        a= {10: {"x": [1,2,3], "y":[10.2, 11.2, 12.2], "type": 1},
-            20: {"x": [12,22,33, 44, 55], "y":[10.2, 11.2, 12.2, 98, 23], "type": 1},
-            3: {"x": [10.1, 2], "y": [20, 30], "type": 2}}
+        a= {10: {"x": [150,152,160], "y":[250.2, 252.2, 255.2], "type": 1},
+            20: {"x": [151,159,165, 170, 180], "y":[255.2, 259.2, 260.2, 240, 245], "type": 1},
+            3: {"x": [160.1, 166], "y": [256, 257], "type": 2}}
 
         prediction_request = agentinfo_pb2.PredictionRequest()
         for agent_id, agent_info in a.items():

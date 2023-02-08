@@ -9,6 +9,8 @@ catkin_ws_path = home + '/workspace/Context-POMDP'
 
 summit_path = home + "/summit"
 
+conda_path = home+"/anaconda3"
+
 if not os.path.isdir(catkin_ws_path):
     catkin_ws_path = home + '/catkin_ws'
 
@@ -50,7 +52,8 @@ if __name__ == '__main__':
 
     config = parser.parse_args()
 
-    additional_mounts = "-v " + catkin_ws_path + ":/root/catkin_ws -v " + summit_path + ":/root/summit "
+    additional_mounts = "-v " + catkin_ws_path + ":/root/catkin_ws -v " + summit_path + ":/root/summit " + \
+        "-v " + conda_path + ":/root/anaconda3 "
 
     cmd_args = "docker run --rm --runtime=nvidia -it --network host " + \
                 "-v " + result_path + ":/root/driving_data " + \

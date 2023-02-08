@@ -4,6 +4,7 @@ import numpy as np
 import fnmatch
 import sys
 import math
+import matplotlib as mpl
 
 # This class read each line and returns array
 class GetTimeSyncAndAgentsInfo():
@@ -244,6 +245,23 @@ if __name__ == "__main__":
         '/home/cunjun/driving_data/JAN/gamma_tick_3Hz_ts0_1_8e4_allHzscale/',
         '/home/cunjun/driving_data/JAN/gamma_tick_3Hz_ts1_8e4/',
         '/home/cunjun/driving_data/JAN/gamma_tick_30Hz_ts1_8e4/'
+    ]
+
+    FOLDER_PATHS = [
+        #'/home/cunjun/driving_data/JAN/gamma_tick_3Hz_ts0_1_8e3_allHzscale/',
+        #'/home/cunjun/driving_data/JAN/gamma_tick_3Hz_ts0_1_8e4_allHzscale/',
+        '/home/cunjun/driving_data/JAN/gamma_tick_3Hz_ts0_1_8e4/',
+        '/home/cunjun/driving_data/JAN/gamma_tick_3Hz_ts0_1_8e4_allHzscale/',
+        #'/home/cunjun/driving_data/DEL/knndefault_3Hz_ts0_1_allHzscale/',
+        #'/home/cunjun/driving_data/DEL/knnsocial_3Hz_ts0_1_allHzscale/',
+        #'/home/cunjun/driving_data/DEL/lstmdefault_3Hz_ts0_1_allHzscale/',
+        #'/home/cunjun/driving_data/DEL/lstmsocial_3Hz_ts0_1_allHzscale/',
+        '/home/cunjun/driving_data/DEL/cv15hz_t0_5/',
+        '/home/cunjun/driving_data/DEL/cv10hz_t0_33/',
+        '/home/cunjun/driving_data/DEL/ca10hz_t0_33/',
+        '/home/cunjun/driving_data/DEL/cv10hz_t0_33_slowdownHz3times/',
+        '/home/cunjun/driving_data/DEL/ca10hz_t0_33_slowdownHz3times/',
+
     ]
 
     stats = GetTimeSyncAndAgentsInfo()

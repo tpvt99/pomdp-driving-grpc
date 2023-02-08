@@ -834,7 +834,7 @@ class EgoVehicle(Summit):
                 self.path = new_path
 
     def update(self):
-        start =time.time()
+        start = time.time()
         if PRINT_LOG:
             print('{} [PHONG] Ego_vehicle.py updated() function, speed.x {} speed.y {} with  control.th {}, control.st {}'.format(
                     output_time(), self.actor.get_velocity().x, self.actor.get_velocity().y, self.actor.get_control().throttle,
@@ -842,6 +842,7 @@ class EgoVehicle(Summit):
 
         if not self.agents_ready:
             return
+
 
         if not self.bounds_occupancy.contains(self.get_position()):
             print("Termination: Vehicle exits map boundary")
