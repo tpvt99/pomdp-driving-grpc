@@ -205,8 +205,6 @@ Ext_VNode* POMDPLite::ConstructTree(Belief* belief, const State* state, RandomSt
 
 	State* rootstate = model->Copy(state);
 
-    logi << "POMDPLite::ConstructTree" << endl;
-
 	vector<int> scenarios; scenarios.resize(Globals::config.num_scenarios);
 	for (int i = 0; i < Globals::config.num_scenarios; i++) {
 		scenarios[i] = i;

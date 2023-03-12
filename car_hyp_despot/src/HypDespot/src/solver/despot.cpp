@@ -106,7 +106,7 @@ VNode* DESPOT::Trial(VNode* root, RandomStreams& streams,
 	logv << __FUNCTION__ << endl;
 	VNode* cur = root;
 
-    logi << "VNode* DESPOT::Trial" << endl;
+    //logi << "VNode* DESPOT::Trial" << endl;
 
 	int hist_size = history.Size();
     int vnode_counts_trials = 0;
@@ -210,7 +210,7 @@ Shared_VNode* DESPOT::Trial(Shared_VNode* root, RandomStreams& streams,
                             Shared_SearchStatistics* statistics, bool despot_thread) {
 	Shared_VNode* cur = root;
 
-    logi << "Shared_VNode* DESPOT::Trial" << endl;
+    //logi << "Shared_VNode* DESPOT::Trial" << endl;
 
 
     int hist_size = history.Size();
@@ -437,7 +437,7 @@ void DESPOT::ExpandTreeServer(RandomStreams streams,
 	Shared_VNode* root = node_queue.receive(true, timeout);
 //	DEBUG(string_sprintf("thread %d", threadID));
 
-    logi << "DESPOT::ExpandTreeServer start" << endl;
+    //logi << "DESPOT::ExpandTreeServer start" << endl;
 
 
 	logd << "time_out = "<< timeout << endl;
@@ -753,20 +753,17 @@ void DESPOT::InitLowerBound(VNode* vnode, ScenarioLowerBound* lower_bound,
                             RandomStreams& streams, History& history, bool b_init_root) {
 	logv << __FUNCTION__ << endl;
 
-    logi << "DESPOT::InitLowerBound" << endl;
+    //logi << "DESPOT::InitLowerBound" << endl;
 
 	streams.position(vnode->depth());
 	ValuedAction move = lower_bound->Value(vnode->particles(), streams,
 											   history);
-    logi << "DESPOT::InitLowerBound 1" << endl;
 
     move.value *= Globals::Discount(vnode->depth());
 
 	vnode->default_move(move);
-    logi << "DESPOT::InitLowerBound 2" << endl;
 
     vnode->lower_bound(move.value);
-    logi << "DESPOT::InitLowerBound 3" << endl;
 
 }
 
@@ -774,7 +771,7 @@ void DESPOT::InitUpperBound(VNode* vnode, ScenarioUpperBound* upper_bound,
                             RandomStreams& streams, History& history) {
   logv << __FUNCTION__ << endl;
 
-    logi << "DESPOT::InitUpperBound" << endl;
+    //logi << "DESPOT::InitUpperBound" << endl;
 
     streams.position(vnode->depth());
 	double upper = upper_bound->Value(vnode->particles(), streams, history);
@@ -789,7 +786,7 @@ void DESPOT::InitBounds(VNode* vnode, ScenarioLowerBound* lower_bound,
                         History& history, bool b_init_root) {
 	logv << __FUNCTION__ << endl;
 
-    logi << "DESPOT::InitBounds" << endl;
+    //logi << "DESPOT::InitBounds" << endl;
 
 
     InitLowerBound(vnode, lower_bound, streams, history, b_init_root);
@@ -1869,7 +1866,7 @@ void DESPOT::Expand(VNode* vnode, ScenarioLowerBound* lower_bound,
 	logv << "- Expanding vnode " << vnode << endl;
 
 
-    logi << "DESPOT::Expand VNode" << endl;
+    //logi << "DESPOT::Expand VNode" << endl;
 
 
     if (use_GPU_ && !vnode->PassGPUThreshold())
@@ -1896,7 +1893,7 @@ void DESPOT::Expand(VNode* vnode, ScenarioLowerBound* lower_bound,
 	}
 
 	logv << "vnode level " << vnode->depth() << " " << vnode->legal_actions().size() << endl;
-    logi << "DESPOT::Expand Vnode 1 " << endl;
+    //logi << "DESPOT::Expand Vnode 1 " << endl;
 
 
     for(ACT_TYPE action: vnode->legal_actions()){
@@ -1913,7 +1910,7 @@ void DESPOT::Expand(VNode* vnode, ScenarioLowerBound* lower_bound,
 		children[action] = qnode;
 	}
 
-    logi << "DESPOT::Expand Vnode 2 " << endl;
+    //logi << "DESPOT::Expand Vnode 2 " << endl;
 
     for(ACT_TYPE action: vnode->legal_actions()){
 		QNode* qnode = children[action];
@@ -1928,7 +1925,7 @@ void DESPOT::Expand(VNode* vnode, ScenarioLowerBound* lower_bound,
 		}
 
 	}
-    logi << "DESPOT::Expand Vnode 3 " << endl;
+    //logi << "DESPOT::Expand Vnode 3 " << endl;
 
 	if (use_GPU_ && vnode->PassGPUThreshold())
 		GPU_Expand_Action(vnode, lower_bound, upper_bound, model, streams,
@@ -1940,7 +1937,7 @@ void DESPOT::Expand(VNode* vnode, ScenarioLowerBound* lower_bound,
 	}
 
 	logv << "* Expansion complete!" << endl;
-    logi << "DESPOT::Expand Vnode completed " << endl;
+    //logi << "DESPOT::Expand Vnode completed " << endl;
 
 }
 
@@ -1973,7 +1970,7 @@ void DESPOT::Expand(QNode* qnode, ScenarioLowerBound* lb,
 	if (Globals::config.use_multi_thread_){
 		prior_ID=MapThread(this_thread::get_id());
 	}
-    logi << "DESPOT::Expand Qnode start" << endl;
+    //logi << "DESPOT::Expand Qnode start" << endl;
 
 	VNode* parent = qnode->parent();
 	streams.position(parent->depth());
@@ -2022,7 +2019,7 @@ void DESPOT::Expand(QNode* qnode, ScenarioLowerBound* lb,
 		}
 	}
 
-    logi << "DESPOT::Expand Qnode with steps " << stepCount << endl;
+    //logi << "DESPOT::Expand Qnode with steps " << stepCount << endl;
 
 
     step_reward = Globals::Discount(parent->depth()) * step_reward
@@ -2067,13 +2064,13 @@ void DESPOT::Expand(QNode* qnode, ScenarioLowerBound* lb,
 
 	}
 
-    logi << "DESPOT::Expand Qnode done 1" << endl;
+    //logi << "DESPOT::Expand Qnode done 1" << endl;
 
     MakeObsNodeTime += Globals::ElapsedTime(start);
 
 	InitChildrenBounds(qnode, lb, ub, model, streams, history);
 
-    logi << "DESPOT::Expand Qnode done 2" << endl;
+    //logi << "DESPOT::Expand Qnode done 2" << endl;
 
 }
 
@@ -2086,7 +2083,7 @@ void DESPOT::InitChildrenBounds(QNode* qnode, ScenarioLowerBound* lb,
 
 	bool doPrint = DESPOT::Print_nodes;
 
-    logi << "InitChildrenBounds1" << endl;
+    //logi << "InitChildrenBounds1" << endl;
 
 	double lower_bound = qnode->step_reward;
 	double upper_bound = qnode->step_reward;
@@ -2134,7 +2131,7 @@ void DESPOT::InitChildrenBounds(QNode* qnode, ScenarioLowerBound* lb,
 		upper_bound += vnode->upper_bound();
 		InitBoundTime += Globals::ElapsedTime(start1);
 	}
-    logi << "InitChildrenBounds2" << endl;
+    //logi << "InitChildrenBounds2" << endl;
 
 	qnode->Weight();//just to initialize the weight
 
@@ -2155,7 +2152,7 @@ void DESPOT::InitChildrenBounds(QNode* qnode, ScenarioLowerBound* lb,
 		     << " ,weight= " << qnode->Weight() << " )" << endl;
 	}
 
-    logi << "InitChildrenBounds3" << endl;
+    //logi << "InitChildrenBounds3" << endl;
 
 }
 
@@ -2323,7 +2320,7 @@ ValuedAction DESPOT::Evaluate(VNode* root, vector<State*>& particles,
 		particles[i]->scenario_id = i;
 	}
 
-    logi << "ValuedAction DESPOT::Evaluate" << endl;
+    //logi << "ValuedAction DESPOT::Evaluate" << endl;
 
     int countSteps = 0;
 	for (int i = 0; i < particles.size(); i++, countSteps++) {
@@ -2374,7 +2371,7 @@ ValuedAction DESPOT::Evaluate(VNode* root, vector<State*>& particles,
 		value += val;
 	}
 
-    logi << "ValuedAction DESPOT::Evaluate with Steps " << countSteps <<  endl;
+    //logi << "ValuedAction DESPOT::Evaluate with Steps " << countSteps <<  endl;
 
 
     return ValuedAction(OptimalAction(root).action, value / particles.size());
