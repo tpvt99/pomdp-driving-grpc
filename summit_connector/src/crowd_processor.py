@@ -127,7 +127,7 @@ class CrowdProcessor(Summit):
         if not self.ego_car_info:
             return
 
-        if len(self.world.get_actors()) > self.total_num_agents / 1.2 or time.time() - start_time > 15.0:
+        if len(self.world.get_actors()) > self.total_num_agents / 1.2 or time.time() - start_time > 50.0:
             # print("[crowd_processor.py] {} crowd agents ready".format(
                 # len(self.world.get_actors())))
             self.agents_ready_pub.publish(True)
@@ -146,6 +146,7 @@ class CrowdProcessor(Summit):
 
         current_time = rospy.Time.now()
 
+        # Does not remove the last intentions. Safe to call multiple times.
         self.crowd_service.acquire_local_intentions()
         local_intentions = self.crowd_service.local_intentions
         self.crowd_service.release_local_intentions()

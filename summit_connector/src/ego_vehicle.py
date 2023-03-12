@@ -29,7 +29,8 @@ import os
 os.environ["PYRO_LOGFILE"] = "pyro.log"
 os.environ["PYRO_LOGLEVEL"] = "DEBUG"
 
-from async_settings import EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ, EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME, PRINT_LOG
+from async_settings import EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ, EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME, \
+    PRINT_LOG, ORIGINAL_EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ
 def output_time():
     return datetime.now().strftime("%H:%M:%S.%f")[:-3]
 
@@ -714,6 +715,9 @@ class EgoVehicle(Summit):
         #     print('cmd_speed {} {}'.format(cmd_speed, time.time() - script_start))
         #     sys.stdout.flush()
 
+        print('{} [PHONG] Ego_vehicle.py send_control_from_vel() function. cmd_sp {}, cmd_st {}, curr_sp {}'.format(
+            output_time(), cmd_speed, cmd_steer, cur_speed))
+
 
         if cmd_speed < 1e-5 and cur_speed < 0.5:
             control.throttle = 0
@@ -729,6 +733,12 @@ class EgoVehicle(Summit):
             if self.speed_control_last_update is None:
                 dt = 0.0
             else:
+                # TODO
+                # Proposing to change dt to 1/EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ.
+                # This is because, if we keep dt running as original 20Hz, while the simulator ticks 0.003Hz, then the 
+                # accumulative speed control will be significantly impacted (it keeps smaller and small while command speed is kept same)
+                # If we don't change dt, and reduce the Hz for ego_vehicle update, then dt is huge, thus the throttle too big.
+                # Thus, we propose to change dt to 1/EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ while keeping ego_vehicle update at low Hz.
                 dt = (cur_time - self.speed_control_last_update).to_sec()
 
             speed_error = cmd_speed - cur_speed
@@ -736,6 +746,13 @@ class EgoVehicle(Summit):
             # if speed_error < 0:
             #     print('speed_error={}'.format(speed_error))
             sys.stdout.flush()
+
+            # Scaling PID parameters because of slow frequency. Work at 300, 50 slower. Testing at 900 slower
+            freq_ratio = EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ / ORIGINAL_EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ
+            # kp = kp * freq_ratio
+            # ki = ki * freq_ratio
+            # kd = kd * freq_ratio
+            dt = min(dt, 1.0/ORIGINAL_EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ)
 
             self.speed_control_integral = speed_error * dt + discount * self.speed_control_integral
 
@@ -756,12 +773,15 @@ class EgoVehicle(Summit):
                 control.brake = -speed_control
                 control.hand_brake = False
 
+            print('{} [PHONG] Ego_vehicle.py inside speed control. dt {}, speed_error {}, speed_control {}'.format(
+            output_time(), dt, speed_error, speed_control))
+
         control.steer = np.clip(cmd_steer * 45.0 / self.steer_angle_range, -1.0, 1.0)
 
         control.manual_gear_shift = True
         control.gear = 1
-        if PRINT_LOG:
-            print('{} [PHONG] Ego_vehicle.py send_control_from_vel() function. throttle {}, steer {}'.format(
+        #if PRINT_LOG:
+        print('{} [PHONG] Ego_vehicle.py send_control_from_vel() function. throttle {}, steer {}'.format(
             output_time(), control.throttle, control.steer))
         self.actor.apply_control(control)
 

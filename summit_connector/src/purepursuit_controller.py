@@ -166,7 +166,7 @@ class Pursuit(object):
 
     def publish_steer(self):
         if PRINT_LOG:
-            print('{} [PHONG] purepursuit.py publish_steer() function'.format(output_time()))
+            print('{} [PHONG] purepursuit.py publish_steer() function steer: {}'.format(output_time(), self.car_steer))
 
         steer_to_pub = Float32()
         steer_to_pub.data = self.car_steer
