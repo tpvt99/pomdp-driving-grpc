@@ -251,8 +251,6 @@ void WorldModel::PhongAgentStep(AgentStruct &agent, int intention_id,  std::map<
         logi << "[PHONG] WorldModel::PhongAgentStep intention_id " << endl;
     }
 
-    //AgentStepPath(agent);
-
     auto it = result.find(agent.id);
     if (it != result.end()) {
         std::vector<double> agent_info = it->second;
@@ -262,7 +260,7 @@ void WorldModel::PhongAgentStep(AgentStruct &agent, int intention_id,  std::map<
 
         agent.pos.x = next_x;
         agent.pos.y = next_y;
-        agent.coordHistory.Add(COORD(next_x, next_y), Globals::ElapsedTime());
+        agent.coordHistory.Add(COORD(next_x, next_y), Globals::ElapsedTime(), 0); // time_per_move here is 0 so that it can add for prediction
     } else {
         if (MopedParams::PHONG_DEBUG)
             std::cout << "[Phong] WorldModel::PhongAgentStep Cannot find agent in prediction" << std::endl;
@@ -276,21 +274,6 @@ void WorldModel::PhongAgentStep(AgentStruct &agent, double& random,  std::map<in
         logi << "[PHONG] WorldModel::PhongAgentStep with neighbors  " << endl;
     }
 
-//    double noise = sqrt(-2 * log(random));
-//    if (FIX_SCENARIO != 1 && !CPUDoPrint) {
-//        random = QuickRandom::RandGeneration(random);
-//    }
-//    noise *= cos(2 * M_PI * random) * ModelParams::NOISE_GOAL_ANGLE;
-//
-//    if (goal_mode == "cur_vel") {
-//        AgentStepCurVel(agent, 1, noise);
-//    } else if (goal_mode == "path") {
-//        AgentStepPath(agent, 1, noise);
-//    }
-//
-//    // Add the history to the agent
-//    agent.coordHistory.Add(COORD(agent.pos.x, agent.pos.y));
-
     // Extract information
     auto it = result.find(agent.id);
     if (it != result.end()) {
@@ -301,11 +284,10 @@ void WorldModel::PhongAgentStep(AgentStruct &agent, double& random,  std::map<in
 
         agent.pos.x = next_x;
         agent.pos.y = next_y;
-        agent.coordHistory.Add(COORD(next_x, next_y), Globals::ElapsedTime());
+        agent.coordHistory.Add(COORD(next_x, next_y), Globals::ElapsedTime(), 0); // time_per_move here is 0 so that it can add for prediction
     } else {
         std::cout << "[Phong] WorldModel::PhongAgentStep Cannot find agent in prediction" << std::endl;
     }
-
 
 }
 

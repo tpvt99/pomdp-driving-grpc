@@ -71,7 +71,7 @@ std::string printCurrentTime() {
     oss << '.' << std::setfill('0') << std::setw(3) << ms.count();
 
     //return "The current time is : " + std::to_string(Hour) + ":" + std::to_string(Min) + ":" + std::to_string(Sec);
-    return "The current time is : " + oss.str();
+    return "The current time is : " + oss.str() + "\n";
 }
 
 void handle_div_0(int sig, siginfo_t* info, void*) {
@@ -202,7 +202,7 @@ void Controller::InitializeDefaultParameters() {
     if (b_drive_mode == JOINT_POMDP || b_drive_mode == ROLL_OUT) {
         Globals::config.useGPU = false;
         Globals::config.num_scenarios = 5;
-        Globals::config.NUM_THREADS = 1;
+        Globals::config.NUM_THREADS = 10;
         Globals::config.discount = 0.95;
         Globals::config.search_depth = 12;
         Globals::config.max_policy_sim_len = 20;
@@ -240,7 +240,10 @@ bool Controller::RunStep(despot::Solver* solver, World* world, Logger* logger) {
     if (MopedParams::PHONG_DEBUG)
         logi << "[PHONG] Controller::RunStep 1 - GetCurrentState:" << endl;
 
-    logi << printCurrentTime() << "[PHONG] Controller::RunStep 1 - GetCurrentState:" << endl;
+    logi << printCurrentTime();
+    logi << "[PHONG] Controller::RunStep 1 - GetCurrentState. Then print history of car and 1 agent" << endl;
+    static_cast<const PomdpStateWorld*>(world->GetCurrentState())->car.PhongCarText(std::cout);
+    static_cast<const PomdpStateWorld*>(world->GetCurrentState())->agents[0].PhongAgentText(std::cout);
 
     auto start_t = Time::now();
     const State* cur_state = world->GetCurrentState();
@@ -314,7 +317,8 @@ bool Controller::RunStep(despot::Solver* solver, World* world, Logger* logger) {
     if (MopedParams::PHONG_DEBUG)
         logi << "[PHONG] Controller::RunStep 8 - Executing action:" << endl;
 
-    logi << printCurrentTime() << "[PHONG] Controller::RunStep 8 - Executing action:" << endl;
+    logi << printCurrentTime();
+    logi << "[PHONG] Controller::RunStep 8 - Executing action:" << endl;
 
 
     cerr << "DEBUG: Executing action" << endl;

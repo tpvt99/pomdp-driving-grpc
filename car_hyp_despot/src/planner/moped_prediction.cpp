@@ -8,9 +8,6 @@ using grpc::Channel;
 using grpc::ClientContext;
 using grpc::Status;
 
-std::string target_str =  "localhost:50051";
-MotionPredictionClient mopedClient(
-        grpc::CreateChannel(target_str, grpc::InsecureChannelCredentials()));
 
 MotionPredictionClient::MotionPredictionClient(std::shared_ptr<Channel> channel)
             : stub_(agentinfo::MotionPrediction::NewStub(channel)) {}
@@ -59,7 +56,7 @@ std::map<int, std::vector<double>> MotionPredictionClient::Predict(std::vector<A
         std::map<int, std::vector<double>> results;
 
         if (status.ok()) {
-            std::cout << "GRPC Call Success" << " size " << reply.agentinfo_size() << std::endl;
+            //std::cout << "GRPC Call Success" << " size " << reply.agentinfo_size() << std::endl;
             for (int i = 0; i < reply.agentinfo_size(); i++) {
                 std::vector<double> returnAgentInfo;
 
@@ -90,5 +87,12 @@ std::map<int, std::vector<double>> callPython(std::vector<AgentStruct> neighborA
     // the argument "--target=" which is the only expected argument.
     // We indicate that the channel isn't authenticated (use of
     // InsecureChannelCredentials()).
+
+    // static MotionPredictionClient mopedClient(
+    //     grpc::CreateChannel("localhost:50051", grpc::InsecureChannelCredentials()));
+
+    MotionPredictionClient mopedClient(
+        grpc::CreateChannel("localhost:50051", grpc::InsecureChannelCredentials()));
+        
     return mopedClient.Predict(neighborAgents, car);
 }

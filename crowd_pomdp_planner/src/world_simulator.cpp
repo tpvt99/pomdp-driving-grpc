@@ -181,9 +181,12 @@ State* WorldSimulator::GetCurrentState() {
     double elapse_time = Globals::ElapsedTime();
 
     CoordHistory currHistory = current_state_.car.coordHistory;
-    currHistory.Add(car_.pos, elapse_time);
+    currHistory.Add(car_.pos, elapse_time, Globals::config.time_per_move);
     current_state_.car = car_;
     current_state_.car.coordHistory = currHistory;
+
+    //logi << "[Phong] GetCurrentState Display history of car time per move " << Globals::config.time_per_move << endl;
+    //current_state_.car.PhongCarText(std::cout);
 
     int n = 0;
     std::map<double, AgentStruct&> sorted_agents = GetSortedAgents();
@@ -196,18 +199,18 @@ State* WorldSimulator::GetCurrentState() {
     for (auto it = sorted_agents.begin();
          it != sorted_agents.end(); ++it) {
         AgentStruct &sortedAgent = it->second;
-        sortedAgent.coordHistory.Add(sortedAgent.pos, elapse_time);
+        sortedAgent.coordHistory.Add(sortedAgent.pos, elapse_time, Globals::config.time_per_move);
     }
     // Step 2. For each sorted_agents, find this agent in current_state_
     // If exists, we add history to the sorted_agent
     for (auto it = sorted_agents.begin();
-         it != sorted_agents.end(); ++it) {
+        it != sorted_agents.end(); ++it) {
         AgentStruct &initAgent = it->second;
         for (int i = 0; i < current_state_.num; i++) {
             AgentStruct & currAgent = current_state_.agents[i];
             if (initAgent.id == currAgent.id) {
                 initAgent.coordHistory = currAgent.coordHistory;
-                initAgent.coordHistory.Add(initAgent.pos, elapse_time);
+                initAgent.coordHistory.Add(initAgent.pos, elapse_time, Globals::config.time_per_move);
                 break;
             }
         }
@@ -222,6 +225,9 @@ State* WorldSimulator::GetCurrentState() {
     }
     current_state_.num = n;
     current_state_.time_stamp = min(car_time_stamp_, agents_time_stamp_);
+
+    logi << "[Phong] GetCurrentState Display history of first sorted agent ";
+    current_state_.agents[0].PhongAgentText(std::cout);
 
     if (MopedParams::PHONG_DEBUG)
         logi << "[PHONG] WorldSimulator::GetCurrentState 1.b - Printing states:" << endl;
@@ -270,9 +276,6 @@ double WorldSimulator::StepReward(PomdpStateWorld& state, ACT_TYPE action) {
     // Smoothness control
     reward += ContextPomdp_model->ActionPenalty(action);
 
-    if (MopedParams::PHONG_REWARD_DEBUG) {
-        logi << "[Phong] WorldSimulator::StepReward - smooth-reward: " << ContextPomdp_model->ActionPenalty(action) << endl;
-    }
 
     // Speed control: Encourage higher speed
     reward += ContextPomdp_model->MovementPenalty(state,
@@ -280,7 +283,7 @@ double WorldSimulator::StepReward(PomdpStateWorld& state, ACT_TYPE action) {
 
     if (MopedParams::PHONG_REWARD_DEBUG) {
         logi << "[Phong] WorldSimulator::StepReward - speed-reward: " << ContextPomdp_model->MovementPenalty(state,
-                                            ContextPomdp_model->GetSteering(action)) << endl;
+                    ContextPomdp_model->GetSteering(action)) << " - smooth-reward: " << ContextPomdp_model->ActionPenalty(action) << endl;
     }
 
     return reward;
@@ -626,8 +629,8 @@ void WorldSimulator::EgoStateCallBack(
     if (real_speed > ModelParams::VEL_MAX * 1.3) {
         ERR(
                 string_sprintf(
-                        "Unusual car vel (too large): %f. Check the speed controller for possible problems (VelPublisher.cpp)",
-                        real_speed));
+                        "Unusual car vel (too large): %f/%f. Check the speed controller for possible problems (VelPublisher.cpp)",
+                        real_speed, ModelParams::VEL_MAX * 1.3));
     }
 
     if (ego_car.initial) {

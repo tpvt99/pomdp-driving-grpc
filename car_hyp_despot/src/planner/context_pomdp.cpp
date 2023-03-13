@@ -356,7 +356,7 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
         logd << "Path length " << world_model.path.GetLength() << endl;
 
         if (MopedParams::PHONG_REWARD_DEBUG) {
-            logi << "[Phong] ContextPomdp::Step 123 - goal-reward: " << reward << endl;
+            logi << "[Phong] ContextPomdp::Step1x2x3 - goal-reward: " << reward << endl;
         }
 
         ERR("");
@@ -372,7 +372,7 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
         logv << "assigning collision reward " << reward << endl;
 
         if (MopedParams::PHONG_REWARD_DEBUG) {
-            logi << "[Phong] ContextPomdp::Step 123 - crash-reward: " << reward << endl;
+            logi << "[Phong] ContextPomdp::Step1x2x3 - crash-reward: " << reward << endl;
         }
 
         return true;
@@ -381,17 +381,14 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
     // Smoothness control
     reward += ActionPenalty(GetAccelerationID(action));
 
-    if (MopedParams::PHONG_REWARD_DEBUG) {
-        logi << "[Phong] ContextPomdp::Step 123 - smooth-reward: " << ActionPenalty(GetAccelerationID(action)) << endl;
-    }
-
     // Speed control: Encourage higher speed
     double steering = GetSteering(action);
 
     reward += MovementPenalty(state, steering);
 
     if (MopedParams::PHONG_REWARD_DEBUG) {
-        logi << "[Phong] ContextPomdp::Step 123 - speed-reward: " << MovementPenalty(state, steering) << endl;
+        logi << "[Phong] ContextPomdp::Step1x2x3 - speed-reward: " << MovementPenalty(state, steering) << 
+                "| smooth-reward: " << ActionPenalty(GetAccelerationID(action)) << endl;
     }
 
     // State transition
@@ -425,7 +422,7 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
         std::map<int, std::vector<double>> predictionResults = callPython(neighborAgents, state.car);
 
         if (MopedParams::PHONG_DEBUG) {
-            logi << "[Phong] ContextPomdp::Step 123 buildAgentAndPredict Time: " << Globals::ElapsedTime(start_t) << endl;
+            logi << "[Phong] ContextPomdp::Step1x2x3 buildAgentAndPredict Time: " << Globals::ElapsedTime(start_t) << endl;
         }
 
         for (int i = 0; i < state.num; i++) {
@@ -456,12 +453,16 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
         }
 
         //std::this_thread::sleep_for(std::chrono::microseconds(500));  // 0.0008 slowdown
-        std::this_thread::sleep_for(std::chrono::microseconds(8000));  // 0.008 slowdown
+        //std::this_thread::sleep_for(std::chrono::microseconds(8000));  // 0.008 slowdown
 
     }
 
-    logi << "[Phong] ContextPomdp::Step1x2x3 All MopedPred Time: " << Globals::ElapsedTime(start_t) << " agents_length: " << state.num << endl;
+    // After all agents prediction, we add car.state.x and car.state.y to the history
+    state.car.coordHistory.Add(state.car.pos, Globals::ElapsedTime(), 0);
 
+    logi << "[Phong] ContextPomdp::Step1x2x3 All MopedPred Time: " << Globals::ElapsedTime(start_t) << " agents_length: " << state.num << endl;
+    //state.car.PhongCarText(std::cout);
+    //state.agents[0].PhongAgentText(std::cout);
 
     if (CPUDoPrint && state.scenario_id == CPUPrintPID) {
         if (true) {
@@ -567,7 +568,9 @@ void ContextPomdp::ForwardAndVisualize(const State *sample, int step) const {
     // sample won't change
     PomdpState *next_state = static_cast<PomdpState *>(Copy(sample));
 
-    // Sample  changes in coordHistory
+    // History does not change either
+    // logi << "Before visualization of predicted_car history" << endl;
+    // next_state->car.PhongCarText(std::cout);
 
     for (int i = 0; i < step; i++) {
         // forward
@@ -578,7 +581,9 @@ void ContextPomdp::ForwardAndVisualize(const State *sample, int step) const {
         PrintStateAgents(*next_state, string_sprintf("predicted_agents_%d", i));
     }
 
-
+    // History does not change either
+    // logi << "After visualization of predicted_car history" << endl;
+    // next_state->car.PhongCarText(std::cout);
 }
 
 PomdpState* ContextPomdp::PredictAgents(const PomdpState *ped_state, int acc) const {
