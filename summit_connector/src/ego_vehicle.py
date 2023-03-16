@@ -29,7 +29,7 @@ import os
 os.environ["PYRO_LOGFILE"] = "pyro.log"
 os.environ["PYRO_LOGLEVEL"] = "DEBUG"
 
-from async_settings import EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ, EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME, \
+from async_settings import EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ, ORIGINAL_EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME, \
     PRINT_LOG, ORIGINAL_EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ
 def output_time():
     return datetime.now().strftime("%H:%M:%S.%f")[:-3]
@@ -238,7 +238,7 @@ class EgoVehicle(Summit):
         self.publish_odom_transform()
         self.transformer = TransformListener()
 
-        rospy.Timer(rospy.Duration(EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME), self.publish_il_car_info)
+        rospy.Timer(rospy.Duration(ORIGINAL_EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME), self.publish_il_car_info)
 
     def dispose(self):
         self.actor.destroy()
@@ -715,8 +715,6 @@ class EgoVehicle(Summit):
         #     print('cmd_speed {} {}'.format(cmd_speed, time.time() - script_start))
         #     sys.stdout.flush()
 
-        print('{} [PHONG] Ego_vehicle.py send_control_from_vel() function. cmd_sp {}, cmd_st {}, curr_sp {}'.format(
-            output_time(), cmd_speed, cmd_steer, cur_speed))
 
 
         if cmd_speed < 1e-5 and cur_speed < 0.5:
@@ -727,6 +725,9 @@ class EgoVehicle(Summit):
             self.speed_control_last_update = None
             self.speed_control_integral = 0.0
             self.speed_control_last_error = 0.0
+            print('{} [PHONG] Ego_vehicle.py send_control_from_vel() function. throttle {}, steer {}'.format(
+                output_time(), control.throttle, control.steer))
+
         else:
             cur_time = rospy.Time.now()
 
@@ -740,6 +741,7 @@ class EgoVehicle(Summit):
                 # If we don't change dt, and reduce the Hz for ego_vehicle update, then dt is huge, thus the throttle too big.
                 # Thus, we propose to change dt to 1/EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ while keeping ego_vehicle update at low Hz.
                 dt = (cur_time - self.speed_control_last_update).to_sec()
+                dt = min(dt, 1.0/ORIGINAL_EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ)
 
             speed_error = cmd_speed - cur_speed
             speed_error = np.clip(speed_error, -6.0, 2.0)
@@ -752,7 +754,7 @@ class EgoVehicle(Summit):
             # kp = kp * freq_ratio
             # ki = ki * freq_ratio
             # kd = kd * freq_ratio
-            dt = min(dt, 1.0/ORIGINAL_EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ)
+            
 
             self.speed_control_integral = speed_error * dt + discount * self.speed_control_integral
 
@@ -773,16 +775,16 @@ class EgoVehicle(Summit):
                 control.brake = -speed_control
                 control.hand_brake = False
 
-            print('{} [PHONG] Ego_vehicle.py inside speed control. dt {}, speed_error {}, speed_control {}'.format(
-            output_time(), dt, speed_error, speed_control))
+            #if PRINT_LOG:
+            print('{} [PHONG] Ego_vehicle.py dt {}, speed_error {}, speed_control {} cmd_sp {} curr_sp {} cmd_st {} throttle {}, steer {}'.format(
+            output_time(), dt, round(speed_error,2), round(speed_control,2),  
+            round(cmd_speed, 2), round(cur_speed,2), round(cmd_steer, 2), round(control.throttle, 2), round(control.steer, 2)))
 
         control.steer = np.clip(cmd_steer * 45.0 / self.steer_angle_range, -1.0, 1.0)
 
         control.manual_gear_shift = True
         control.gear = 1
-        #if PRINT_LOG:
-        print('{} [PHONG] Ego_vehicle.py send_control_from_vel() function. throttle {}, steer {}'.format(
-            output_time(), control.throttle, control.steer))
+        
         self.actor.apply_control(control)
 
     def send_control_from_acc(self):
