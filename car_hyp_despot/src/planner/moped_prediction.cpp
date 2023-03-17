@@ -91,8 +91,8 @@ std::map<int, std::vector<double>> callPython(std::vector<AgentStruct> neighborA
     // static MotionPredictionClient mopedClient(
     //     grpc::CreateChannel("localhost:50051", grpc::InsecureChannelCredentials()));
 
-    MotionPredictionClient mopedClient(
-        grpc::CreateChannel("localhost:50051", grpc::InsecureChannelCredentials()));
+    static MotionPredictionClient mopedClient(
+        grpc::CreateChannel("localhost:50053", grpc::InsecureChannelCredentials()));
         
     return mopedClient.Predict(neighborAgents, car);
 }

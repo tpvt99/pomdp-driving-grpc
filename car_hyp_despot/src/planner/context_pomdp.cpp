@@ -321,6 +321,12 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
     reward = 0.0;
     logi << "[Phong] ContextPomdp::Step 123" << endl;
 
+    // Variables to  calculate moving average of moped time
+    static int num_steps = 1;
+    static double avg_moped_time = 0;
+    static double exp_moped_time = 0;
+    static double alpha = 0.00199f; // alpha for exponential moving average, 0.00199f is for 1000 steps
+
     if (MopedParams::PHONG_DEBUG) {
         logi << "[Phong] ContextPomdp::Step 123 - before: " << " action: " << action << "rewards: " << reward << "obs: " << obs << endl;
         //state.PomdpStateText(cout);
@@ -460,9 +466,19 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
     // After all agents prediction, we add car.state.x and car.state.y to the history
     state.car.coordHistory.Add(state.car.pos, Globals::ElapsedTime(), 0);
 
-    logi << "[Phong] ContextPomdp::Step1x2x3 All MopedPred Time: " << Globals::ElapsedTime(start_t) << " agents_length: " << state.num << endl;
+    logi << "[Phong] ContextPomdp::Step1x2x3 All MopedPred Time: " << Globals::ElapsedTime(start_t) << " agents_length: " << state.num << 
+     " avg time " << avg_moped_time << " exp time: " << exp_moped_time << endl;
     //state.car.PhongCarText(std::cout);
     //state.agents[0].PhongAgentText(std::cout);
+
+    // Because I use static, some pomdp will call same process. Thus for LaneGCn is bigger than 0.3, it is very problematic
+    avg_moped_time = avg_moped_time * (num_steps - 1) / num_steps + Globals::ElapsedTime(start_t) / num_steps;
+    num_steps++;
+    exp_moped_time = alpha * Globals::ElapsedTime(start_t) + (1 - alpha) * exp_moped_time;
+
+    if (avg_moped_time > 0.15 or exp_moped_time > 0.15) {
+        ERR(string_sprintf("Stop as time elapsed is too long for LaneGCN prediction %f or %f", avg_moped_time, exp_moped_time));
+    }
 
     if (CPUDoPrint && state.scenario_id == CPUPrintPID) {
         if (true) {

@@ -1,4 +1,4 @@
-#!/home/cunjun/anaconda3/envs/conda38/bin/python
+#!/home/phong/anaconda3/envs/lanegcn/bin/python
 
 
 # Copyright 2015 gRPC authors.
@@ -26,7 +26,9 @@ import agentinfo_pb2
 import agentinfo_pb2_grpc
 import numpy as np
 from moped_implementation.planner_wrapper import PlannerWrapper
+import multiprocessing
 
+_THREAD_CONCURRENCY = multiprocessing.cpu_count()
 MAX_HISTORY_MOTION_PREDICTION = 20
 import pathlib
 current_dir = pathlib.Path(__file__).parent.resolve()
@@ -91,8 +93,8 @@ def serve():
     #planner = PlannerWrapper()
     #trajectories = np.random.normal(loc=[50,200], scale=1, size=(20,20,2))
     #planner.do_predictions(trajectories) # probs shape (number_agents,) predictions shape (number_agents, pred_len, 2)
-
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=5))
+    
+    server = grpc.server(futures.ProcessPoolExecutor(max_workers=1)) # Divide 8 because we run 4 parallely
     agentinfo_pb2_grpc.add_MotionPredictionServicer_to_server(Greeter(), server)
     server.add_insecure_port('[::]:50051')
     server.start()
@@ -101,7 +103,7 @@ def serve():
 
 if __name__ == '__main__':
     logging.basicConfig(filename=f"{current_dir}/logfilexxx.txt",
-                        filemode='w',
+                        filemode='a',
                         format='%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
                         datefmt='%Y-%m-%d %H:%M:%S',
                         level=logging.DEBUG)

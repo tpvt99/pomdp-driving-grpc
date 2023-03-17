@@ -47,7 +47,7 @@ class Greeter(agentinfo_pb2_grpc.MotionPredictionServicer):
         self.planner = PlannerWrapper()
 
     def Predict(self, request, context):
-        print(f"Multiprocessing id: {multiprocessing.current_process()}")
+        #print(f"Multiprocessing id: {multiprocessing.current_process()}")
         xy_pos_list = []
         agent_id_list = []
         start = time.time()
@@ -108,6 +108,8 @@ class Greeter(agentinfo_pb2_grpc.MotionPredictionServicer):
 def _run_server(bind_address):
     print(f"Server started. Awaiting jobs...")
     NUMBER_THREADS = 1
+    #NUMBER_THREADS = int(_THREAD_CONCURRENCY/4)
+
     server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=int(NUMBER_THREADS)),
         options=[
@@ -130,7 +132,7 @@ def _reserve_port():
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
     if sock.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT) == 0:
         raise RuntimeError("Failed to set SO_REUSEPORT.")
-    sock.bind(("", 50051))
+    sock.bind(("", 50053))
     try:
         yield sock.getsockname()[1]
     finally:
@@ -141,8 +143,8 @@ def main():
     """
     Inspired from https://github.com/grpc/grpc/blob/master/examples/python/multiprocessing/server.py
     """
-    #NUM_WORKERS = 1 # Each pomdp planner will call their own moped
-    NUM_WORKERS = int(_THREAD_CONCURRENCY/4) #When using 1 instance of server
+    NUM_WORKERS = 1 # Each pomdp planner will call their own moped
+    #NUM_WORKERS = int(_THREAD_CONCURRENCY/4) #When using 1 instance of server
 
     print(f"Initializing server with {NUM_WORKERS} workers")
     torch.multiprocessing.set_start_method('spawn')

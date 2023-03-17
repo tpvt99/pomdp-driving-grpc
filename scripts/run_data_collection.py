@@ -1,6 +1,7 @@
 import argparse
 from argparse import Namespace
 from os import path
+import os
 import random
 from os.path import expanduser
 import glob
@@ -23,9 +24,9 @@ logging.basicConfig(
 )
 
 home = expanduser("~")
-root_path = os.path.join(home, 'driving_data/log_rewards/knndefault3hz')
-#root_path = os.path.join(home, 'driving_data/DEL/lstmdefault1hz_t0_03_slowdownHz15times_2')
-#root_path = os.path.join(home, 'driving_data_benchmark/gamma1_update')
+#root_path = os.path.join(home, 'driving_data/lanegcn_005Hz_decentralized_1threads')
+root_path = os.path.join(home, 'driving_data/delxx')
+
 
 if not os.path.isdir(root_path):
     os.makedirs(root_path)
@@ -77,12 +78,15 @@ def parse_cmd_args():
                         help='GPU ID for hyp-despot')
     parser.add_argument('--t_scale',
                         type=float,
-                        default=0.1,
+                        default=0.00166,
                         # original 1.0,
                         # 3 times slower, 10Hz, t = 0.333 (cv/ca), Needs a bit slow down
                         # 10 times slower 3Hz, t= 0.1 (knn default ~ 378),
                         # 15 times slower 2Hz, t = 0.0667 ( knn social,lstm default)
                         # 30 times slower, 1Hz, t= 0.0333 (lanegcn ~423, hivt ~405, lstm social ~399)
+                        # 300 times slower, 0.1Hz, t= 0.00333 (lanegcn ~423, hivt ~405, lstm social ~399)
+                        # 600 times slower, 0.05Hz, t= 0.00166 (lanegcn)
+
                         help='Factor for scaling down the time in simulation (to search for longer time)')
     parser.add_argument('--make',
                         type=int,
@@ -379,12 +383,13 @@ def launch_pomdp_planner(round, run):
     if config.debug:
         launch_file = 'planner_debug.launch'
 
+    # Adjusting .2f to .5f because at 0.1Hz, it becomes 0.000 if .2f
     shell_cmd = 'roslaunch --wait crowd_pomdp_planner ' + \
                 launch_file + \
                 ' gpu_id:=' + str(config.gpu_id) + \
                 ' mode:=' + str(config.drive_mode) + \
                 ' summit_port:=' + str(config.port) + \
-                ' time_scale:=' + str.format("%.2f" % config.time_scale) + \
+                ' time_scale:=' + str.format("%.5f" % config.time_scale) + \
                 ' map_location:=' + config.summit_maploc
 
     pomdp_out = open(get_txt_file_name(round, run), 'w')
@@ -480,8 +485,10 @@ if __name__ == '__main__':
             init_case_dirs()
 
             # launch motion prediction server
-            moped_server = subprocess.Popen(["./agent_server_python.py"],
-                                            cwd=f"{ws_root}/src/moped/")
+            print("Moped server :", f"{ws_root}/src/moped/")
+            #moped_server = subprocess.Popen(["./agent_server_process_python.py"],  cwd=f"{ws_root}/src/moped/")
+            moped_server = subprocess.Popen(["CUDA_VISIBLE_DEVICES=0,1,2,3 ./agent_server_process_python.py"], 
+                                           cwd=f"{ws_root}/src/moped/", shell=True)
             # sleep 5 second to let the motion prediction initialize done
             time.sleep(5)
 
