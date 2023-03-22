@@ -25,7 +25,7 @@ logging.basicConfig(
 
 home = expanduser("~")
 #root_path = os.path.join(home, 'driving_data/lanegcn_005Hz_decentralized_1threads')
-root_path = os.path.join(home, 'driving_data/delxx')
+root_path = os.path.join(home, 'driving_data/same_Hz/lanegcn_005Hz')
 
 
 if not os.path.isdir(root_path):
@@ -487,8 +487,8 @@ if __name__ == '__main__':
             # launch motion prediction server
             print("Moped server :", f"{ws_root}/src/moped/")
             #moped_server = subprocess.Popen(["./agent_server_process_python.py"],  cwd=f"{ws_root}/src/moped/")
-            moped_server = subprocess.Popen(["CUDA_VISIBLE_DEVICES=0,1,2,3 ./agent_server_process_python.py"], 
-                                           cwd=f"{ws_root}/src/moped/", shell=True)
+            # moped_server = subprocess.Popen(["CUDA_VISIBLE_DEVICES=0,1,2,3 ./agent_server_process_python.py"], 
+            #                                cwd=f"{ws_root}/src/moped/", shell=True)
             # sleep 5 second to let the motion prediction initialize done
             time.sleep(5)
 

@@ -476,7 +476,7 @@ bool ContextPomdp::Step(State& state_, double rNum, int action, double &reward,
     num_steps++;
     exp_moped_time = alpha * Globals::ElapsedTime(start_t) + (1 - alpha) * exp_moped_time;
 
-    if (avg_moped_time > 0.15 or exp_moped_time > 0.15) {
+    if (avg_moped_time > 0.1 or exp_moped_time > 0.1) {
         ERR(string_sprintf("Stop as time elapsed is too long for LaneGCN prediction %f or %f", avg_moped_time, exp_moped_time));
     }
 

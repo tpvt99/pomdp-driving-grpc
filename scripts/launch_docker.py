@@ -52,8 +52,9 @@ if __name__ == '__main__':
 
     config = parser.parse_args()
 
+    # I add conda_path so as to use conda environment from host machine inside docker
     additional_mounts = "-v " + catkin_ws_path + ":/root/catkin_ws -v " + summit_path + ":/root/summit " + \
-        "-v " + conda_path + ":/root/anaconda3 "
+        "-v " + conda_path + ":/home/phong/anaconda3 " + "-v /home/phong/.ros:/root/.ros "
 
     cmd_args = "docker run --rm --runtime=nvidia -it --network host " + \
                 "-v " + result_path + ":/root/driving_data " + \

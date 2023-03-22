@@ -33,12 +33,15 @@ def filter_txt_files(root_path, txt_files, cap=10):
         ok_flag = False
         no_aa = False
         with open(txtfile, 'r') as f:
-            for line in reversed(list(f)):
-                if 'Step {}'.format(cap + 1) in line or 'step {}'.format(cap + 1) in line:
-                    ok_flag = True
-                if 'No agent array messages received after' in line:
-                    no_aa_count += 1
-                    no_aa = True
+            try:
+                for line in reversed(list(f)):
+                    if 'Step {}'.format(cap + 1) in line or 'step {}'.format(cap + 1) in line:
+                        ok_flag = True
+                    if 'No agent array messages received after' in line:
+                        no_aa_count += 1
+                        no_aa = True
+            except:
+                print(txtfile)
         if ok_flag == True:
             filtered_files.append(txtfile)
             # print("good file: ", txtfile)

@@ -86,11 +86,10 @@ class GetPerformanceInfo():
             self.reset_per_file_variables()
             self.new_read = False
             self.file_counts_per_folder += 1
-            self.execution_step = 0 # for temporary
 
         ## Do this for only same_Hz
-        if self.execution_step >= 100:
-            return
+        # if self.execution_step >= 100:
+        #     return
 
         if 'Construct tree' in line:
             self.start_reading = True  # to start reading from beginning
@@ -192,32 +191,32 @@ class GetPerformanceInfo():
             self.collision_flag = True
             self.collision_counts_per_folder += 1
 
-        if "smooth-reward" in line:
-            if "WorldSimulator::StepReward" in line:
-                self.sub_step_reward['smooth'].append(float(line.split(' ')[-1]))
-            elif "ContextPomdp::Step1x2x3" in line:
-                try:
-                    self.sub_prediction_reward['smooth'].append(float(line.split(' ')[-1]))
-                except:
-                    print(line)
-        if "crash-reward" in line:
-            if "WorldSimulator::StepReward" in line:
-                self.sub_step_reward['collision'].append(float(line.split(' ')[-1]))
-            elif "ContextPomdp::Step1x2x3" in line:
-                self.sub_prediction_reward['collision'].append(float(line.split(' ')[-1]))
-        if "goal-reward" in line:
-            if "WorldSimulator::StepReward" in line:
-                self.sub_step_reward['goal'].append(float(line.split(' ')[-1]))
-            elif "ContextPomdp::Step1x2x3" in line:
-                self.sub_prediction_reward['goal'].append(float(line.split(' ')[-1]))
-        if "speed-reward" in line:
-            if "WorldSimulator::StepReward" in line:
-                self.sub_step_reward['speed'].append(float(line.split(' ')[-1]))
-            elif "ContextPomdp::Step1x2x3" in line:
-                try:
-                    self.sub_prediction_reward['speed'].append(float(line.split(' ')[-1]))
-                except:
-                    print(line)
+        # if "smooth-reward" in line:
+        #     if "WorldSimulator::StepReward" in line:
+        #         self.sub_step_reward['smooth'].append(float(line.split(' ')[-1]))
+        #     elif "ContextPomdp::Step 123" in line:
+        #         try:
+        #             self.sub_prediction_reward['smooth'].append(float(line.split(' ')[-1]))
+        #         except:
+        #             print(line)
+        # if "crash-reward" in line:
+        #     if "WorldSimulator::StepReward" in line:
+        #         self.sub_step_reward['collision'].append(float(line.split(' ')[-1]))
+        #     elif "ContextPomdp::Step 123" in line:
+        #         self.sub_prediction_reward['collision'].append(float(line.split(' ')[-1]))
+        # if "goal-reward" in line:
+        #     if "WorldSimulator::StepReward" in line:
+        #         self.sub_step_reward['goal'].append(float(line.split(' ')[-1]))
+        #     elif "ContextPomdp::Step 123" in line:
+        #         self.sub_prediction_reward['goal'].append(float(line.split(' ')[-1]))
+        # if "speed-reward" in line:
+        #     if "WorldSimulator::StepReward" in line:
+        #         self.sub_step_reward['speed'].append(float(line.split(' ')[-1]))
+        #     elif "ContextPomdp::Step 123" in line:
+        #         try:
+        #             self.sub_prediction_reward['speed'].append(float(line.split(' ')[-1]))
+        #         except:
+        #             print(line)
 
 
 
@@ -258,8 +257,6 @@ class GetPerformanceInfo():
 
         #self.exp_names.setdefault(exp_name, None)
 
-        if self.execution_step < 100: # We do not read < 100 steps
-            return
 
         # 'exp': [[10,20,30], [5,10,80,70]] -> 2 files of this exp, each file has 3 and 4 tree constructions resp.
         # and there exists those moped steps per tree
@@ -370,25 +367,6 @@ class GetPerformanceInfo():
             key = list(self.exp_names)[i]
 
             print(f"key: {key}")
-
-            ## Ploting average moped steps per tree construction
-            ## Version 1. Average for each file
-            # if version1:
-            #     arrays = []
-            #     for zz in range(len(self.exp_names[key]['moped_steps'])):
-            #         arrays.append(np.mean(np.array(self.exp_names[key]['moped_steps'][zz])))
-            #     axs[0][0].violinplot(arrays, positions=[i],
-            #                          showmeans=True, showmedians=False, showextrema=False)
-            # else:
-            #     ## Version 2. Get all elements
-            #     arrays = []
-            #     for zz in range(len(self.exp_names[key]['moped_steps'])):
-            #         arrays.extend(self.exp_names[key]['moped_steps'][zz])
-            #     axs[0][0].violinplot(arrays, positions=[i],
-            #                          showmeans=True, showmedians=False, showextrema=False)
-            #
-            # axs[0][0].text(x=i, y=np.mean(arrays) * 1.05,
-            #                s=int(float(np.mean(arrays))), ha="center")
 
             self.subplot(exp_name=key, exp_name_index=i, what_to_plot='moped_steps', ax_row=0, ax_col=0, version1=version1, axs=axs)
 
@@ -531,33 +509,8 @@ if __name__ == "__main__":
     # for normal performance
     FOLDER_PATHS = [
 
-        #'/home/phong/driving_data/same_Hz/cv1hz/',
-        '/home/phong/driving_data/same_Hz/cv1hz_fixed/',
-        '/home/phong/driving_data/same_Hz/ca1hz_fixed/',
-        '/home/phong/driving_data/same_Hz/knndefault1hz_fixed/',
-        '/home/phong/driving_data/same_Hz/knnsocial1hz_fixed/',
-        '/home/phong/driving_data/same_Hz/lstmdefault1hz_fixed/',
-        '/home/phong/driving_data/same_Hz/lstmsocial1hz_fixed/',
-        '/home/phong/driving_data/same_Hz/lanegcn1hz_fixed/',
-        '/home/phong/driving_data/same_Hz/hivt1hz_fixed/',
-
+        '/home/phong/driving_data/server/hivt1hz/',
     ]
-
-    # for rewards
-    # FOLDER_PATHS = [
-
-    #     '/home/cunjun/driving_data/log_rewards/hivt1hz/',
-    #     '/home/cunjun/driving_data/log_rewards/lanegcn1hz/',
-    #     '/home/cunjun/driving_data/log_rewards/knndefault3hz/',
-    #     '/home/cunjun/driving_data/log_rewards/knnsocial1hz/',
-    #     '/home/cunjun/driving_data/log_rewards/lstmdefault1hz/',
-    #     '/home/cunjun/driving_data/log_rewards/lstmsocial1hz/',
-    #     '/home/cunjun/driving_data/log_rewards/ca10hz/',
-    #     '/home/cunjun/driving_data/log_rewards/cv10hz/',
-
-    # ]
-
-    # on servers
 
 
     stats = GetPerformanceInfo()

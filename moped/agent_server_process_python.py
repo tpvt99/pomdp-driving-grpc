@@ -132,7 +132,7 @@ def _reserve_port():
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
     if sock.getsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT) == 0:
         raise RuntimeError("Failed to set SO_REUSEPORT.")
-    sock.bind(("", 50053))
+    sock.bind(("", 50056))
     try:
         yield sock.getsockname()[1]
     finally:

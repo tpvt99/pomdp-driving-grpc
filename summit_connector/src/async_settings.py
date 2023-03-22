@@ -35,7 +35,7 @@ ORIGINAL_EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME = 0.02 #0.02 # Updating ever
 
 ## 30 times slower (lanegcn/hivt)
 
-# EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ = 0.667 #20, if 10 times slower, use 2
+#EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ = 0.667 #20, if 10 times slower, use 2
 
 
 

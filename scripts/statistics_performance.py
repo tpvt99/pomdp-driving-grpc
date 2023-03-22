@@ -192,32 +192,32 @@ class GetPerformanceInfo():
             self.collision_flag = True
             self.collision_counts_per_folder += 1
 
-        if "smooth-reward" in line:
-            if "WorldSimulator::StepReward" in line:
-                self.sub_step_reward['smooth'].append(float(line.split(' ')[-1]))
-            elif "ContextPomdp::Step1x2x3" in line:
-                try:
-                    self.sub_prediction_reward['smooth'].append(float(line.split(' ')[-1]))
-                except:
-                    print(line)
-        if "crash-reward" in line:
-            if "WorldSimulator::StepReward" in line:
-                self.sub_step_reward['collision'].append(float(line.split(' ')[-1]))
-            elif "ContextPomdp::Step1x2x3" in line:
-                self.sub_prediction_reward['collision'].append(float(line.split(' ')[-1]))
-        if "goal-reward" in line:
-            if "WorldSimulator::StepReward" in line:
-                self.sub_step_reward['goal'].append(float(line.split(' ')[-1]))
-            elif "ContextPomdp::Step1x2x3" in line:
-                self.sub_prediction_reward['goal'].append(float(line.split(' ')[-1]))
-        if "speed-reward" in line:
-            if "WorldSimulator::StepReward" in line:
-                self.sub_step_reward['speed'].append(float(line.split(' ')[-1]))
-            elif "ContextPomdp::Step1x2x3" in line:
-                try:
-                    self.sub_prediction_reward['speed'].append(float(line.split(' ')[-1]))
-                except:
-                    print(line)
+        # if "smooth-reward" in line:
+        #     if "WorldSimulator::StepReward" in line:
+        #         self.sub_step_reward['smooth'].append(float(line.split(' ')[-1]))
+        #     elif "ContextPomdp::Step 123" in line:
+        #         try:
+        #             self.sub_prediction_reward['smooth'].append(float(line.split(' ')[-1]))
+        #         except:
+        #             print(line)
+        # if "crash-reward" in line:
+        #     if "WorldSimulator::StepReward" in line:
+        #         self.sub_step_reward['collision'].append(float(line.split(' ')[-1]))
+        #     elif "ContextPomdp::Step 123" in line:
+        #         self.sub_prediction_reward['collision'].append(float(line.split(' ')[-1]))
+        # if "goal-reward" in line:
+        #     if "WorldSimulator::StepReward" in line:
+        #         self.sub_step_reward['goal'].append(float(line.split(' ')[-1]))
+        #     elif "ContextPomdp::Step 123" in line:
+        #         self.sub_prediction_reward['goal'].append(float(line.split(' ')[-1]))
+        # if "speed-reward" in line:
+        #     if "WorldSimulator::StepReward" in line:
+        #         self.sub_step_reward['speed'].append(float(line.split(' ')[-1]))
+        #     elif "ContextPomdp::Step 123" in line:
+        #         try:
+        #             self.sub_prediction_reward['speed'].append(float(line.split(' ')[-1]))
+        #         except:
+        #             print(line)
 
 
 

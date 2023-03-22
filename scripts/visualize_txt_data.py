@@ -8,18 +8,6 @@ import matplotlib.pyplot as plt
 from matplotlib import patches as mpatches
 from matplotlib import animation
 
-sx=40.0
-sy=40.0
-fig = plt.figure()
-plt.axis([-sx,sx,-sy,sy])
-ax = plt.gca()
-ax.set_aspect(sy/sx)
-anim_running = True
-
-
-trial_text = plt.text(-sx + 5.0, -sy + 2.0, '', fontsize=10)
-depth_text = plt.text(-sx + 5.0, -sy + 6.0, '', fontsize=10)
-
 
 def error_handler(e):
     print(
@@ -36,6 +24,8 @@ def parse_data(txt_file):
     pred_exo_list = {}
     trial_list = {}
     depth_list = {}
+
+    max_min_coords = {'max_x': -math.inf, 'min_x': math.inf, 'max_y': -math.inf, 'min_y': math.inf}
 
     exo_count = 0
     start_recording = False
@@ -63,6 +53,11 @@ def parse_data(txt_file):
 
                     pos = [pos_x, pos_y]
 
+                    max_min_coords['max_x'] = max(max_min_coords['max_x'], pos_x)
+                    max_min_coords['min_x'] = min(max_min_coords['min_x'], pos_x)
+                    max_min_coords['max_y'] = max(max_min_coords['max_y'], pos_y)
+                    max_min_coords['min_y'] = min(max_min_coords['min_y'], pos_y)
+
                     agent_dict = {'pos': [pos_x, pos_y],
                                     'heading': heading,
                                     'speed': speed,
@@ -82,6 +77,11 @@ def parse_data(txt_file):
                     pos_x = float(line_split[18+1].replace('(', '').replace(',', ''))
                     pos_y = float(line_split[19+1].replace(')', '').replace(',', ''))
                     pos = [pos_x, pos_y]
+
+                    max_min_coords['max_x'] = max(max_min_coords['max_x'], pos_x)
+                    max_min_coords['min_x'] = min(max_min_coords['min_x'], pos_x)
+                    max_min_coords['max_y'] = max(max_min_coords['max_y'], pos_y)
+                    max_min_coords['min_y'] = min(max_min_coords['min_y'], pos_y)
 
                     vel_x = float(line_split[23+1].replace('(', '').replace(',', ''))
                     vel_y = float(line_split[24+1].replace(')', '').replace(',', ''))
@@ -126,6 +126,11 @@ def parse_data(txt_file):
                         pred_car_list[cur_step] = []
                     pred_car_list[cur_step].append(agent_dict)
 
+                    max_min_coords['max_x'] = max(max_min_coords['max_x'], x)
+                    max_min_coords['min_x'] = min(max_min_coords['min_x'], x)
+                    max_min_coords['max_y'] = max(max_min_coords['max_y'], y)
+                    max_min_coords['min_y'] = min(max_min_coords['min_y'], y)
+
                 elif 'predicted_agents_' in line:
                     # predicted_agents_0 380.443 474.335 5.5686 0.383117 1.1751
                     # [(x, y, heading, bb_x, bb_y)]
@@ -149,6 +154,12 @@ def parse_data(txt_file):
                                     'bb': (bb_x*2, bb_y*2) 
                                     }
                         agent_list.append(agent_dict)
+
+                        max_min_coords['max_x'] = max(max_min_coords['max_x'], x)
+                        max_min_coords['min_x'] = min(max_min_coords['min_x'], x)
+                        max_min_coords['max_y'] = max(max_min_coords['max_y'], y)
+                        max_min_coords['min_y'] = min(max_min_coords['min_y'], y)
+
                     pred_exo_list[cur_step].append(agent_list)
                 elif 'INFO: Executing action' in line:
                     line_split = line.split(' ')
@@ -170,7 +181,7 @@ def parse_data(txt_file):
                 error_handler(e)
                 pdb.set_trace()
 
-    return action_list, ego_list, ego_path_list, exos_list, coll_bool_list, pred_car_list, pred_exo_list, trial_list, depth_list
+    return action_list, ego_list, ego_path_list, exos_list, coll_bool_list, pred_car_list, pred_exo_list, trial_list, depth_list, max_min_coords
 
 
 def agent_rect(agent_dict, origin, color, fill=True):
@@ -181,7 +192,7 @@ def agent_rect(agent_dict, origin, color, fill=True):
         x_shift = [bb_y/2.0 * math.cos(heading), bb_y/2.0 * math.sin(heading)]
         y_shift = [-bb_x/2.0 * math.sin(heading), bb_x/2.0 * math.cos(heading)]
         
-        coord = [pos[0] - origin[0] - x_shift[0] - y_shift[0], pos[1] - origin[1] - x_shift[1] - y_shift[1]]
+        coord = [pos[0] - 0 - x_shift[0] - y_shift[0], pos[1] - 0 - x_shift[1] - y_shift[1]]
         rect = mpatches.Rectangle(
             xy=coord, 
             width=bb_y , height=bb_x, angle=np.rad2deg(heading), fill=fill, color=color)
@@ -197,7 +208,7 @@ def vel_arrow(agent_dict, origin, color):
         vel = agent_dict['vel']
         pos = agent_dict['pos']
         arrow = mpatches.Arrow(
-            x=pos[0] - origin[0], y=pos[1] - origin[1], dx=vel[0], dy=vel[1], color=color)
+            x=pos[0] - 0, y=pos[1] - 0, dx=vel[0], dy=vel[1], color=color)
         return arrow
 
     except Exception as e:
@@ -214,10 +225,10 @@ def acc_arrow(action, ego_dict, mode):
         # print('heading {}, steer {}, acc {}'.format(heading, steer, acc))
         if mode == 'acc':
             arrow = mpatches.Arrow(
-                x=0.0, y=0.0, dx=math.cos(heading) * acc, dy=math.sin(heading) * acc, color='red', width=4)
+                x=ego_dict['pos'][0], y=ego_dict['pos'][1], dx=math.cos(heading) * acc, dy=math.sin(heading) * acc, color='red', width=4)
         else:
             arrow = mpatches.Arrow(
-                x=0.0, y=0.0, dx=math.cos(heading) * speed, dy=math.sin(heading) * speed, color='lightgreen', width=2)
+                x=ego_dict['pos'][0], y=ego_dict['pos'][1], dx=math.cos(heading) * speed, dy=math.sin(heading) * speed, color='lightgreen', width=2)
         return arrow
 
     except Exception as e:
@@ -234,9 +245,10 @@ def animate(time_step):
 
     time_step =  time_step + config.frame
 
-    print("Drawing time step {}...".format(time_step))
 
     ego_pos = ego_list[time_step]['pos']
+    print(f"Drawing time step {time_step} ego pos {ego_pos}")
+
     # draw ego car
     if time_step in coll_bool_list.keys():
         ego_color = 'red'
@@ -251,13 +263,13 @@ def animate(time_step):
     # draw exo agents
     for agent_dict in exos_list[time_step]:
         patches.append(ax.add_patch(
-            agent_rect(agent_dict, ego_pos, 'black')))   
+            agent_rect(agent_dict, ego_pos, 'black')))
         patches.append(ax.add_patch(
             vel_arrow(agent_dict, ego_pos, 'grey')))
 
     if time_step in pred_car_list.keys():
         for car_dict in pred_car_list[time_step]:
-            car_dict['bb'] = ego_list[time_step]['bb'] 
+            car_dict['bb'] = ego_list[time_step]['bb']
             patches.append(ax.add_patch(
                 agent_rect(car_dict, ego_pos, 'lightgreen', False)))
 
@@ -278,11 +290,13 @@ def animate(time_step):
     if time_step in ego_list.keys():
         patches.append(ax.add_patch(
             agent_rect(ego_list[time_step], ego_pos, ego_color)))
+
     if time_step in action_list.keys():
         patches.append(ax.add_patch(
             acc_arrow(action_list[time_step], ego_list[time_step], mode='acc')))
         patches.append(ax.add_patch(
-            acc_arrow(action_list[time_step], ego_list[time_step], mode='speed')))    
+            acc_arrow(action_list[time_step], ego_list[time_step], mode='speed')))
+
     if time_step in ego_list.keys():
         patches.append(ax.add_patch(
             vel_arrow(ego_list[time_step], ego_pos, 'brown')))    
@@ -311,12 +325,26 @@ if __name__ == "__main__":
         default=0,
         help='start frame')
     config = parser.parse_args()
-    action_list, ego_list, ego_path_list, exos_list, coll_bool_list, pred_car_list, pred_exo_list, trial_list, depth_list = \
+    action_list, ego_list, ego_path_list, exos_list, coll_bool_list, pred_car_list, pred_exo_list, trial_list, depth_list, max_min_coords = \
         parse_data(config.file)
+
+
+    print(max_min_coords)
+    fig = plt.figure()
+    plt.axis([max_min_coords['min_x'], max_min_coords['max_x'],
+               max_min_coords['min_y'], max_min_coords['max_y']])
+
+    ax = plt.gca()
+    ax.grid()
+    ax.set_aspect(1)
+    anim_running = True
+
+    trial_text = plt.text(max_min_coords['min_x'] + 5.0, max_min_coords['min_y'] + 2.0, '', fontsize=10)
+    depth_text = plt.text(max_min_coords['min_x'] + 5.0, max_min_coords['min_y'] + 6.0, '', fontsize=10)
 
     anim = animation.FuncAnimation(fig, animate, init_func=init,
                                frames=len(ego_list.keys()) - config.frame, interval=300, blit=True)
-    fig.canvas.mpl_connect('button_press_event', onClick)
+    #fig.canvas.mpl_connect('button_press_event', onClick)
 
     plt.show()
 

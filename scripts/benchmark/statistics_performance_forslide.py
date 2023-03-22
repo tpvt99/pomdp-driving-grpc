@@ -80,17 +80,11 @@ class GetPerformanceInfo():
 
 
     def read(self, line):
-
         # Resetting for a new file
         if self.new_read:
             self.reset_per_file_variables()
             self.new_read = False
             self.file_counts_per_folder += 1
-            self.execution_step = 0 # for temporary
-
-        ## Do this for only same_Hz
-        if self.execution_step >= 100:
-            return
 
         if 'Construct tree' in line:
             self.start_reading = True  # to start reading from beginning
@@ -195,29 +189,23 @@ class GetPerformanceInfo():
         if "smooth-reward" in line:
             if "WorldSimulator::StepReward" in line:
                 self.sub_step_reward['smooth'].append(float(line.split(' ')[-1]))
-            elif "ContextPomdp::Step1x2x3" in line:
-                try:
-                    self.sub_prediction_reward['smooth'].append(float(line.split(' ')[-1]))
-                except:
-                    print(line)
+            elif "ContextPomdp::Step 123" in line:
+                self.sub_prediction_reward['smooth'].append(float(line.split(' ')[-1]))
         if "crash-reward" in line:
             if "WorldSimulator::StepReward" in line:
                 self.sub_step_reward['collision'].append(float(line.split(' ')[-1]))
-            elif "ContextPomdp::Step1x2x3" in line:
+            elif "ContextPomdp::Step 123" in line:
                 self.sub_prediction_reward['collision'].append(float(line.split(' ')[-1]))
         if "goal-reward" in line:
             if "WorldSimulator::StepReward" in line:
                 self.sub_step_reward['goal'].append(float(line.split(' ')[-1]))
-            elif "ContextPomdp::Step1x2x3" in line:
+            elif "ContextPomdp::Step 123" in line:
                 self.sub_prediction_reward['goal'].append(float(line.split(' ')[-1]))
         if "speed-reward" in line:
             if "WorldSimulator::StepReward" in line:
                 self.sub_step_reward['speed'].append(float(line.split(' ')[-1]))
-            elif "ContextPomdp::Step1x2x3" in line:
-                try:
-                    self.sub_prediction_reward['speed'].append(float(line.split(' ')[-1]))
-                except:
-                    print(line)
+            elif "ContextPomdp::Step 123" in line:
+                self.sub_prediction_reward['speed'].append(float(line.split(' ')[-1]))
 
 
 
@@ -257,9 +245,6 @@ class GetPerformanceInfo():
         self.file_counts_per_folder += 1
 
         #self.exp_names.setdefault(exp_name, None)
-
-        if self.execution_step < 100: # We do not read < 100 steps
-            return
 
         # 'exp': [[10,20,30], [5,10,80,70]] -> 2 files of this exp, each file has 3 and 4 tree constructions resp.
         # and there exists those moped steps per tree
@@ -364,72 +349,42 @@ class GetPerformanceInfo():
 
         number_of_exp = len(self.exp_names)
 
-        fig, axs = plt.subplots(5, 4, figsize=(10,20)) # we plot 4 values so we need 2 times 2. Can be adjusted if draw more than that
+        fig, axs = plt.subplots(2, 4, figsize=(10,20)) # we plot 4 values so we need 2 times 2. Can be adjusted if draw more than that
+
+        temp = [1.6920, 1.9536, 3.0997, 5.4749, 2.3718, 2.46718, 3.1474, 3.40218]
 
         for i in range(number_of_exp):
             key = list(self.exp_names)[i]
 
             print(f"key: {key}")
 
-            ## Ploting average moped steps per tree construction
-            ## Version 1. Average for each file
-            # if version1:
-            #     arrays = []
-            #     for zz in range(len(self.exp_names[key]['moped_steps'])):
-            #         arrays.append(np.mean(np.array(self.exp_names[key]['moped_steps'][zz])))
-            #     axs[0][0].violinplot(arrays, positions=[i],
-            #                          showmeans=True, showmedians=False, showextrema=False)
-            # else:
-            #     ## Version 2. Get all elements
-            #     arrays = []
-            #     for zz in range(len(self.exp_names[key]['moped_steps'])):
-            #         arrays.extend(self.exp_names[key]['moped_steps'][zz])
-            #     axs[0][0].violinplot(arrays, positions=[i],
-            #                          showmeans=True, showmedians=False, showextrema=False)
-            #
-            # axs[0][0].text(x=i, y=np.mean(arrays) * 1.05,
-            #                s=int(float(np.mean(arrays))), ha="center")
 
             self.subplot(exp_name=key, exp_name_index=i, what_to_plot='moped_steps', ax_row=0, ax_col=0, version1=version1, axs=axs)
-
-
             self.subplot(exp_name=key, exp_name_index=i, what_to_plot='number_trials', ax_row=0, ax_col=1, version1=version1, axs=axs)
-            self.subplot(exp_name=key, exp_name_index=i, what_to_plot='node_expansions', ax_row=0, ax_col=2, version1=version1, axs=axs)
-            self.subplot(exp_name=key, exp_name_index=i, what_to_plot='nodes', ax_row=0, ax_col=3, version1=version1, axs=axs)
-            self.subplot(exp_name=key, exp_name_index=i, what_to_plot='tree_depth', ax_row=1, ax_col=0, version1=version1, axs=axs)
-            self.subplot(exp_name=key, exp_name_index=i, what_to_plot='number_actions', ax_row=1, ax_col=1, version1=version1, axs=axs)
+            self.subplot(exp_name=key, exp_name_index=i, what_to_plot='nodes', ax_row=0, ax_col=2, version1=version1, axs=axs)
+            self.subplot(exp_name=key, exp_name_index=i, what_to_plot='tree_depth', ax_row=0, ax_col=3, version1=version1, axs=axs)
 
-            self.subplot(exp_name=key, exp_name_index=i, what_to_plot='moped_time', ax_row=2, ax_col=0, version1=version1, axs=axs)
-            self.subplot(exp_name=key, exp_name_index=i, what_to_plot='tree_search_time', ax_row=2, ax_col=1, version1=version1, axs=axs)
-            self.subplot(exp_name=key, exp_name_index=i, what_to_plot='run_time_one_scenario', ax_row=2, ax_col=2, version1=version1, axs=axs)
+            #self.subplot(exp_name=key, exp_name_index=i, what_to_plot='progress_dists', ax_row=3, ax_col=0, version1=version1, axs=axs)
 
-            self.subplot(exp_name=key, exp_name_index=i, what_to_plot='progress_dists', ax_row=3, ax_col=0, version1=version1, axs=axs)
-            self.subplot(exp_name=key, exp_name_index=i, what_to_plot='traveled_dist', ax_row=3, ax_col=1, version1=version1, axs=axs)
-            self.subplot(exp_name=key, exp_name_index=i, what_to_plot='avg_rewards', ax_row=3, ax_col=2, version1=version1, axs=axs)
-            self.subplot(exp_name=key, exp_name_index=i, what_to_plot='avg_speeds', ax_row=3, ax_col=3, version1=version1, axs=axs)
+            axs[1][0].violinplot([temp[i]], positions=[i],showmeans=True, showmedians=False, showextrema=False)
+            axs[1][0].text(x=i, y=np.mean(temp[i]) * 1.05,
+                                     s=round(float(np.mean(temp[i])), 2), ha="center")
 
-            self.subplot(exp_name=key, exp_name_index=i, what_to_plot='collision_counts', ax_row=4, ax_col=0, version1=version1, axs=axs)
+            self.subplot(exp_name=key, exp_name_index=i, what_to_plot='avg_rewards', ax_row=1, ax_col=1, version1=version1, axs=axs)
+            self.subplot(exp_name=key, exp_name_index=i, what_to_plot='avg_speeds', ax_row=1, ax_col=2, version1=version1, axs=axs)
+            self.subplot(exp_name=key, exp_name_index=i, what_to_plot='collision_counts', ax_row=1, ax_col=3, version1=version1, axs=axs)
 
 
         axs[0][0].set_title("Moped steps/Tree")
         #axs[0][0].margins(y=0.1)
         axs[0][1].set_title("Trials/Tree")
-        axs[0][2].set_title("Node Expansion/Tree")
-        axs[0][3].set_title("Total Nodes/Tree")
+        axs[0][2].set_title("Total Nodes/Tree")
+        axs[0][3].set_title("Tree Depth")
 
-        axs[1][0].set_title("Tree Depth")
-        axs[1][1].set_title("Num Actions/Scen")
-
-        axs[2][0].set_title("Moped Time")
-        axs[2][1].set_title("Tree Search Time")
-        axs[2][2].set_title("One Scenario Time")
-
-        axs[3][0].set_title("Progress")
-        axs[3][1].set_title("Traveled Dist")
-        axs[3][2].set_title("Rewards")
-        axs[3][3].set_title("Speed")
-
-        axs[4][0].set_title("Col. rate")
+        axs[1][0].set_title("ADE(K=1)")
+        axs[1][1].set_title("Rewards")
+        axs[1][2].set_title("Speed")
+        axs[1][3].set_title("Col. rate")
 
         # add x-tick labels
         # plt.setp(axs, xticks=[y for y in range(len(self.exp_names))],
@@ -445,119 +400,40 @@ class GetPerformanceInfo():
         fig.legend(handles=color_lines, loc='center right', ncol=1)
         print([ax.get_legend_handles_labels() for ax in fig.axes])
         plt.setp(axs, xticks=[])
-        fig.tight_layout()
-        plt.legend()
-        plt.show()
-
-    def draw_rewards(self):
-        number_of_exp = len(self.exp_names)
-
-        def subplot2(exp_name, exp_name_index, what_to_plot, sub_reward, ax_row, ax_col, axs):
-            arrays = []
-            for zz in range(len(self.exp_names[exp_name][what_to_plot][sub_reward])):
-                arrays.append(np.mean(np.array(self.exp_names[exp_name][what_to_plot][sub_reward][zz])))
-            print(arrays)
-            axs[ax_row][ax_col].violinplot(arrays, positions=[exp_name_index],
-                                           showmeans=True, showmedians=False, showextrema=False)
-
-
-            axs[ax_row][ax_col].text(x=exp_name_index, y=np.mean(arrays) * 1.05,
-                                         s=round(float(np.mean(arrays)), 5), ha="center")
-
-
-        fig, axs = plt.subplots(2, 4, figsize=(10, 20))  # we plot 4 values so we need 2 times 2. Can be adjusted if draw more than that
-
-        for i in range(number_of_exp):
-            key = list(self.exp_names)[i]
-
-            print(f"key: {key}")
-
-            subplot2(exp_name=key, exp_name_index=i, what_to_plot='prediction_rewards', sub_reward='goal', ax_row=0, ax_col=0,
-                          axs=axs)
-
-            subplot2(exp_name=key, exp_name_index=i, what_to_plot='prediction_rewards', sub_reward='collision', ax_row=0, ax_col=1, axs=axs)
-
-            subplot2(exp_name=key, exp_name_index=i, what_to_plot='prediction_rewards', sub_reward='smooth', ax_row=0, ax_col=2,
-                         axs=axs)
-
-            subplot2(exp_name=key, exp_name_index=i, what_to_plot='prediction_rewards', sub_reward='speed', ax_row=0, ax_col=3,
-                          axs=axs)
-
-            subplot2(exp_name=key, exp_name_index=i, what_to_plot='step_rewards', sub_reward='goal', ax_row=1, ax_col=0,
-                          axs=axs)
-
-            subplot2(exp_name=key, exp_name_index=i, what_to_plot='step_rewards', sub_reward='collision', ax_row=1, ax_col=1, axs=axs)
-
-            subplot2(exp_name=key, exp_name_index=i, what_to_plot='step_rewards', sub_reward='smooth', ax_row=1, ax_col=2,
-                         axs=axs)
-
-            subplot2(exp_name=key, exp_name_index=i, what_to_plot='step_rewards', sub_reward='speed', ax_row=1, ax_col=3,
-                          axs=axs)
-
-        axs[0][0].set_title("Prediction Goal Rewards")
-        axs[0][1].set_title("Prediction Coolision Rewards")
-        axs[0][2].set_title("Prediction Smooth Rewards")
-        axs[0][3].set_title("Prediction Speed Rewards")
-
-        axs[0][0].margins(y=0.1)
-
-        axs[1][0].set_title("Step Goal Rewards")
-        axs[1][1].set_title("Step Coolision Rewards")
-        axs[1][2].set_title("Step Smooth Rewards")
-        axs[1][3].set_title("Step Speed Rewards")
-
-        axs[0][0].margins(y=0.1)
-
-
-        color_lines = []
-        colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22',
-                  '#17becf']
-        for i in range(len(self.exp_names.keys())):
-            blue_line = mlines.Line2D([], [], color=colors[i], label=list(self.exp_names.keys())[i])
-            color_lines.append(blue_line)
-
-        # fig.legend(labels=self.exp_names.keys(), loc='center right', ncol=1, labelcolor=mpl.rcParams["axes.prop_cycle"])
-        fig.legend(handles=color_lines, loc='center right', ncol=1)
-        print([ax.get_legend_handles_labels() for ax in fig.axes])
-        plt.setp(axs, xticks=[])
         #fig.tight_layout()
         plt.legend()
         plt.show()
 
 
+
 if __name__ == "__main__":
     from average_statistics_of_1_data import filter_txt_files, collect_txt_files
+
 
     # for normal performance
     FOLDER_PATHS = [
 
-        #'/home/phong/driving_data/same_Hz/cv1hz/',
-        '/home/phong/driving_data/same_Hz/cv1hz_fixed/',
-        '/home/phong/driving_data/same_Hz/ca1hz_fixed/',
-        '/home/phong/driving_data/same_Hz/knndefault1hz_fixed/',
-        '/home/phong/driving_data/same_Hz/knnsocial1hz_fixed/',
-        '/home/phong/driving_data/same_Hz/lstmdefault1hz_fixed/',
-        '/home/phong/driving_data/same_Hz/lstmsocial1hz_fixed/',
-        '/home/phong/driving_data/same_Hz/lanegcn1hz_fixed/',
-        '/home/phong/driving_data/same_Hz/hivt1hz_fixed/',
+        #'/home/cunjun/driving_data/DEL/knnsocial_3Hz_ts0_1_allHzscale/',too slow, use 1Hz
+        #'/home/cunjun/driving_data/DEL/lstmdefault_3Hz_ts0_1_allHzscale/',too slow, use 1Hz
+        #'/home/cunjun/driving_data/DEL/lstmsocial_3Hz_ts0_1_allHzscale/',too slow, use 1Hz
+        #'/home/cunjun/driving_data/DEL/lanegcn0_6hz_t0_02_slowdownHz50times/', # still a lot. reduce to 1Hz (30 times)
+        #'/home/cunjun/driving_data/DEL/hivt0_6hz_t0_02_slowdownHz50times/',# still a lot. reduce to 1Hz (30 times)
+
+        '/home/cunjun/driving_data/DEL/hivt1hz_t0_03_slowdownHz30times/',
+        '/home/cunjun/driving_data/DEL/lanegcn1hz_t0_03_slowdownHz30times/',
+        #'/home/cunjun/driving_data/DEL/knnsocial1hz_t0_03_slowdownHz30times/',
+        '/home/cunjun/driving_data/DEL/knndefault_3Hz_ts0_1_allHzscale/',
+        '/home/cunjun/driving_data/DEL/knnsocial1hz_t0_03_slowdownHz15times_2/',
+        '/home/cunjun/driving_data/DEL/lstmdefault1hz_t0_03_slowdownHz15times_2/',
+        '/home/cunjun/driving_data/DEL/lstmsocial1hz_t0_03_slowdownHz30times/',
+
+        #'/home/cunjun/driving_data/DEL/cv10hz_t0_33_slowdownHz3times/',
+        #'/home/cunjun/driving_data/DEL/ca10hz_t0_33_slowdownHz3times/',
+        '/home/cunjun/driving_data/log_rewards/cv10hz/', # a bit less, slow down not too much, using time.sleep(0.00008)
+        '/home/cunjun/driving_data/log_rewards/ca10hz/',# still too much
+        # a bit less, slow down not too much, using time.sleep(0.00008)
 
     ]
-
-    # for rewards
-    # FOLDER_PATHS = [
-
-    #     '/home/cunjun/driving_data/log_rewards/hivt1hz/',
-    #     '/home/cunjun/driving_data/log_rewards/lanegcn1hz/',
-    #     '/home/cunjun/driving_data/log_rewards/knndefault3hz/',
-    #     '/home/cunjun/driving_data/log_rewards/knnsocial1hz/',
-    #     '/home/cunjun/driving_data/log_rewards/lstmdefault1hz/',
-    #     '/home/cunjun/driving_data/log_rewards/lstmsocial1hz/',
-    #     '/home/cunjun/driving_data/log_rewards/ca10hz/',
-    #     '/home/cunjun/driving_data/log_rewards/cv10hz/',
-
-    # ]
-
-    # on servers
 
 
     stats = GetPerformanceInfo()
