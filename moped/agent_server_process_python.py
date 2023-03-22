@@ -193,6 +193,5 @@ if __name__ == '__main__':
     )
 
     logging.info(sys.executable)
-    #cProfile.run('main()', sort='tottime')
 
     main()
