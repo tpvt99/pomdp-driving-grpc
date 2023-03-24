@@ -12,7 +12,7 @@ summit_path = home + "/summit"
 conda_path = home+"/anaconda3"
 
 if not os.path.isdir(catkin_ws_path):
-    catkin_ws_path = home + '/catkin_ws'
+    catkin_ws_path = home + '/catkin_ws_gammaplanner'
 
 result_path = home + '/driving_data'
 

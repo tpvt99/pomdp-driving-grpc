@@ -9,6 +9,7 @@ from clear_process import *
 from timeout import TimeoutMonitor
 
 from summit_simulator import print_flush,  SimulatorAccessories
+from moped_simulator import MopedSimulatorAccessories
 import logging
 
 
@@ -25,7 +26,7 @@ logging.basicConfig(
 
 home = expanduser("~")
 #root_path = os.path.join(home, 'driving_data/lanegcn_005Hz_decentralized_1threads')
-root_path = os.path.join(home, 'driving_data/same_Hz/lanegcn_005Hz')
+root_path = os.path.join(home, 'driving_data/delxxx')
 
 
 if not os.path.isdir(root_path):
@@ -78,7 +79,7 @@ def parse_cmd_args():
                         help='GPU ID for hyp-despot')
     parser.add_argument('--t_scale',
                         type=float,
-                        default=0.00166,
+                        default=1.0,
                         # original 1.0,
                         # 3 times slower, 10Hz, t = 0.333 (cv/ca), Needs a bit slow down
                         # 10 times slower 3Hz, t= 0.1 (knn default ~ 378),
@@ -125,15 +126,15 @@ def parse_cmd_args():
                         default=0,
                         help='debug mode')
     parser.add_argument('--num-car',
-                        default='20',
+                        default='1',
                         help='Number of cars to spawn (default: 20)',
                         type=int)
     parser.add_argument('--num-bike',
-                        default='20',
+                        default='1',
                         help='Number of bikes to spawn (default: 20)',
                         type=int)
     parser.add_argument('--num-pedestrian',
-                        default='20',
+                        default='1',
                         help='Number of pedestrians to spawn (default: 20)',
                         type=int)
     return parser.parse_args()
@@ -153,6 +154,7 @@ def update_global_config(cmd_args):
     config.port = int(cmd_args.port)
     config.ros_port = config.port + 111
     config.pyro_port = config.port + 6100
+    config.moped_pyro_port = config.port + 6300
     config.ros_master_url = "http://localhost:{}".format(config.ros_port)
     config.ros_pref = "ROS_MASTER_URI=http://localhost:{} ".format(config.ros_port)
     config.ros_env = os.environ.copy()
@@ -326,16 +328,18 @@ def launch_summit_simulator(round, run, cmd_args):
     sim_accesories = SimulatorAccessories(cmd_args, config)
     sim_accesories.start()
 
-    out_file = open('debug.log', 'w')
+    #out_file = get_txt_file_name(round, run)
 
     # ros connector for summit
     shell_cmd = 'roslaunch summit_connector connector.launch port:=' + \
                 str(config.port) + ' pyro_port:=' + str(config.pyro_port) + \
+                ' moped_pyro_port:=' + str(config.moped_pyro_port) + \
                 ' map_location:=' + str(config.summit_maploc) + \
                 ' random_seed:=' + str(config.random_seed) + \
                 ' num_car:=' + str(cmd_args.num_car) + \
                 ' num_bike:=' + str(cmd_args.num_bike) + \
                 ' num_ped:=' + str(cmd_args.num_pedestrian)
+    
     if "gamma" in cmd_args.drive_mode:
         print_flush("launching connector with GAMMA controller...")
         shell_cmd = shell_cmd + ' ego_control_mode:=gamma ego_speed_mode:=vel'
@@ -418,6 +422,56 @@ def launch_pomdp_planner(round, run):
 
     return pomdp_proc, pomdp_out
 
+def launch_gamma_planner(round, run):
+    gamma_proc, rviz_out = None, None
+
+    launch_file = 'gamma_planner.launch'
+    if config.debug:
+        launch_file = 'gamma_planner_debug.launch'
+
+    # Adjusting .2f to .5f because at 0.1Hz, it becomes 0.000 if .2f
+    shell_cmd = 'roslaunch --wait gamma_planner ' + \
+                launch_file + \
+                ' port:=' + str(config.port) + \
+                ' mode:=' + str(config.drive_mode) + \
+                ' summit_port:=' + str(config.port) + \
+                ' time_scale:=' + str.format("%.5f" % config.time_scale) + \
+                ' map_location:=' + config.summit_maploc + \
+                ' pyro_port:=' + str(config.pyro_port) + \
+                ' moped_pyro_port:=' + str(config.moped_pyro_port) + \
+                ' random_seed:=' + str(config.random_seed) + \
+                ' num_car:=' + str(cmd_args.num_car) + \
+                ' num_bike:=' + str(cmd_args.num_bike) + \
+                ' num_ped:=' + str(cmd_args.num_pedestrian)
+    
+    shell_cmd = shell_cmd + ' ego_control_mode:=gamma ego_speed_mode:=vel'
+
+    gamma_out = open(get_txt_file_name(round, run), 'w')
+
+    print_flush("=> Search log {}".format(gamma_out.name))
+
+    if config.verbosity > 0:
+        print_flush('[run_data_collection.py] ' + shell_cmd)
+
+    start_t = time.time()
+    try:
+        gamma_proc = subprocess.Popen(shell_cmd.split(), env=config.ros_env, 
+                                      stdout=gamma_out, stderr=gamma_out)
+        print_flush('[run_data_collection.py] Gamma planning...')
+
+        # global_proc_queue.append((gamma_proc, "main_proc", gamma_out))
+        monitor_subprocess(global_proc_queue)
+
+        gamma_proc.wait(timeout=int(config.eps_length / config.time_scale))
+
+        print_flush("[run_data_collection.py] episode successfully ended")
+    except subprocess.TimeoutExpired:
+        print_flush("[run_data_collection.py] episode reaches full length {} s".format(config.eps_length / config.time_scale))
+    finally:
+        elapsed_time = time.time() - start_t
+        print_flush('[run_data_collection.py] Gamma planner exited in {} s'.format(elapsed_time))
+
+    return gamma_proc, gamma_out
 
 def monitor_subprocess(queue):
     global monitor_worker
@@ -462,6 +516,11 @@ if __name__ == '__main__':
             print_flush(e)
         try:
             sim_accesories.terminate()
+            # Check if moped_accessories exist, if yes, kill it
+            if ("gamma" in cmd_args.drive_mode) and (moped_accesories is not None):
+                moped_accesories.terminate() 
+                print("[PHONG] Running_data_collection.py Moped server terminated")
+            print("[PHONG] Running_data_collection.py sim_accesories terminated")
         except Exception as e:
             print_flush(e)
         print_flush('[run_data_collection.py] is ending! Clearing timer...')
@@ -486,19 +545,26 @@ if __name__ == '__main__':
 
             # launch motion prediction server
             print("Moped server :", f"{ws_root}/src/moped/")
-            #moped_server = subprocess.Popen(["./agent_server_process_python.py"],  cwd=f"{ws_root}/src/moped/")
-            # moped_server = subprocess.Popen(["CUDA_VISIBLE_DEVICES=0,1,2,3 ./agent_server_process_python.py"], 
-            #                                cwd=f"{ws_root}/src/moped/", shell=True)
+            if "pomdp" in cmd_args.drive_mode or "rollout" in cmd_args.drive_mode:
+                moped_server = subprocess.Popen(["CUDA_VISIBLE_DEVICES=0,1,2,3 ./agent_server_process_python.py"], 
+                                           cwd=f"{ws_root}/src/moped/", shell=True)
+                print(f"Running moped grpc server as driver mode is {cmd_args.drive_mode}")
+            elif "gamma" in cmd_args.drive_mode:
+                moped_accesories = MopedSimulatorAccessories(cmd_args, config)
+                moped_accesories.start()
+                print(f"Running moped pyro4 server as driver mode is {cmd_args.drive_mode}")
+
             # sleep 5 second to let the motion prediction initialize done
             time.sleep(5)
-
+            
             sim_accesories = launch_summit_simulator(round, run, cmd_args)
-
 
             record_proc = launch_record_bag(round, run)
 
-            if "pomdp" in cmd_args.drive_mode or "gamma" in cmd_args.drive_mode or "rollout" in cmd_args.drive_mode:
+            if "pomdp" in cmd_args.drive_mode or "rollout" in cmd_args.drive_mode:
                 pomdp_proc, pomdp_out = launch_pomdp_planner(round, run)
+            elif "gamma" in cmd_args.drive_mode:
+                gamma_proc, gamma_out = launch_gamma_planner(round, run)
 
             print_flush("[run_data_collection.py] Finish data: sample_{}_{}".format(round, run))
             # kill_ros_nodes(config.ros_pref)

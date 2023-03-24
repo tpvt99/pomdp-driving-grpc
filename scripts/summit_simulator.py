@@ -5,7 +5,7 @@ from os.path import expanduser
 
 summit_scripts = expanduser("~/summit/PythonAPI/examples")
 sys.path.append(summit_scripts)
-import gamma_crowd_slowsim, spawn_imagery, spawn_meshes
+import gamma_crowd_gammaplanner, spawn_imagery, spawn_meshes
 
 
 def print_flush(msg):
@@ -43,7 +43,7 @@ class SimulatorAccessories(Process):
             lane_change_probability=0.0,
             cross_probability=0.1,
             stuck_speed=0.2,
-            stuck_duration=1000.0)   # 5 secs is original,
+            stuck_duration=5.0)   # 5 secs is original,
                                     # 3 times slower, 10 times slower -> 20 secs (cv/ca),
                                     # 15 times slower, 30 times slower 50 secs (lanegcn/hivt)
                                     # 300, 600 times slower,1000 secs (lanegcn/hivt)
@@ -61,6 +61,6 @@ class SimulatorAccessories(Process):
         # Spawn crowd.
         if self.verbosity > 0:
             print_flush("[summit_simulator.py] Spawning crowd slow sim")
-        gamma_crowd_slowsim.main(self.args)
+        gamma_crowd_gammaplanner.main(self.args)
 
 

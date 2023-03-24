@@ -1,5 +1,4 @@
-#!/home/cunjun/anaconda3/envs/conda38/bin/python
-
+#!/home/phong/anaconda3/envs/HiVT/bin/python
 
 import Pyro4
 import numpy as np  # Your motion prediction service module
@@ -7,11 +6,14 @@ import argparse
 import logging
 import sys
 import time
+import logging.handlers
 
 import pathlib
 current_dir = pathlib.Path(__file__).parent.resolve()
 
 MAX_HISTORY_MOTION_PREDICTION = 20
+
+print(f"Python executable: {sys.executable}")
 
 from moped_implementation.planner_wrapper import PlannerWrapper
 
@@ -20,61 +22,71 @@ from moped_implementation.planner_wrapper import PlannerWrapper
 class MotionPredictionService(object):
 
     def __init__(self):
-        self.planner = PlannerWrapper()
+        self.pred_len = 10 # Predict 10 frames into the future as 10 * 0.3 = 3 seconds so it is good enough
+        self.planner = PlannerWrapper(pred_len=self.pred_len)
 
 
     def predict(self, agents_data):
         '''
             :param data: a dictionary {'agent_id': int, 'agent_history': [(x1,y1), (x2,y2), ...], 'agent_type': int}
+                    Length of agent_history is any arbitrary but must be less than MAX_HISTORY_MOTION_PREDICTION
+            
+            Return
+            :return: a dictionary {'agent_id': int, 'agent_prediction': [(x1,y1), (x2,y2), ...], 'agent_prob': float}
+                    Length of agent_prediction is self.pred_len
         '''
         # Step 1. From agents_data, build numpy array (number_agents, observation_len, 2)
-        start_t = time.time()
+        
+        agent_id_list = []
         xy_pos_list = []
-        for agent_id, agent_data in agents_data.item():
-            xy_pos = np.array(agent_data['agent_history'])
-            # first axis, we pad width=0 at beginning and pad width=MAX_HISTORY_MOTION_PREDICTION-xy_pos.shape[0] at the end
-            # second axis (which is x and y axis), we do not pad anything as it does not make sense to pad anything
-            xy_pos = np.pad(xy_pos, pad_width=((0, MAX_HISTORY_MOTION_PREDICTION - xy_pos.shape[0]), (0, 0)),
-                            mode="edge")
-            xy_pos_list.append(xy_pos)
+        for agent_id, agent_data in agents_data.items():
+            if agent_id != -1: # -1 is the ego agent, so we add at last
+                xy_pos = np.array(agent_data['agent_history'])
+                # first axis, we pad width=0 at beginning and pad width=MAX_HISTORY_MOTION_PREDICTION-xy_pos.shape[0] at the end
+                # second axis (which is x and y axis), we do not pad anything as it does not make sense to pad anything
+                xy_pos = np.pad(xy_pos, pad_width=((0, MAX_HISTORY_MOTION_PREDICTION - xy_pos.shape[0]), (0, 0)),
+                                mode="edge")
+                xy_pos_list.append(xy_pos)
+                agent_id_list.append(agent_id)
 
+        # Add ego agent at last
+        ego_agent_data = agents_data[-1] # Ego agent has id -1
+        xy_pos = np.array(ego_agent_data['agent_history'])
+        xy_pos = np.pad(xy_pos, pad_width=((0, MAX_HISTORY_MOTION_PREDICTION - xy_pos.shape[0]), (0, 0)),
+                                mode="edge")
+        xy_pos_list.append(xy_pos)
+        agent_id_list.append(agent_id)
 
+        # Creating history
         agents_history = np.stack(xy_pos_list)  # Shape (number_agents, observation_len, 2)
 
+        #print(f"Agents history is {agents_history}")
+        #print(f"Shape of agents history is {agents_history.shape}")
             
         try:
             probs, predictions = self.planner.do_predictions(agents_history)
         except Exception as e:
             logging.info(f"Error in prediction: {e} with inputs {agents_history}")
             probs = np.ones(agents_history.shape[0])
-            # Predictions is the last known position but with shape (number_agents, 1, 2)
-            predictions = agents_history[:, [-1], :]
+            # Predictions is the last known position but with shape (number_agents, self.pred_len, 2)
+            predictions = agents_history[:, -self.pred_len:, :]
 
-
-        response_time = time.time()
+        #print(f"Predictions are {predictions}")
 
         # Build response:
-        response = agentinfo_pb2.PredictionResponse()
-        for i, id in enumerate(agent_id_list):
-            prob_info = agentinfo_pb2.ProbabilityInfo(prob = probs[i], agentId = id)
-            agent_info = agentinfo_pb2.AgentInfo()
-            agent_info.agentId = id
-            agent_info.x.append(predictions[i][0][0]) # Get number_agent_id of 1st axis, of first pred of 2nd axis, of x of 3rd axis
-            agent_info.y.append(predictions[i][0][1]) # Get number_agent_id of 1st axis, of first pred of 2nd axis, of y of 3rd axis
+        data_response = {}
+        for i, agentID in enumerate(agent_id_list):
+            prob_info = probs[i]
+            agent_predictions = [tuple(row) for row in predictions[i]]
 
-            response.agentInfo.append(agent_info)
-            response.probInfo.append(prob_info)
+            data_response[agentID] = {'agent_prediction': agent_predictions, 'agent_prob': prob_info, 'agent_id': agentID}
 
-        end = time.time()
-        #logging.info(f"Time for producing response: {end - response_time}")
-        #logging.info(f"Time for running end-to-end: {end - start}")
-
-        return response
+        return data_response
 
 def main(args):
     Pyro4.Daemon.serveSimple(
         {
-            MotionPredictionService: "motion_prediction_service",
+            MotionPredictionService: "mopedservice.warehouse",
         },
         host=args.host,
         port=args.mopedpyroport,
@@ -92,9 +104,9 @@ if __name__ == "__main__":
     argparser.add_argument(
         '-p', '--mopedpyroport',
         metavar='P',
-        default=8200,
+        default=8300,
         type=int,
-        help='TCP port to listen to (default: 8200)')
+        help='TCP port to listen to (default: 8300)')
     args = argparser.parse_args()
 
     max_bytes = 500 * 1024 * 1024  # 500Mb
@@ -121,5 +133,6 @@ if __name__ == "__main__":
     )
 
     logging.info(sys.executable)
+    logging.info(f"Running PYRO:mopedserve.warehouse on {args.host}:{args.mopedpyroport}")
 
     main(args)
