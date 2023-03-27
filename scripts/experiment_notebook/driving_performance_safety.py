@@ -1,0 +1,168 @@
+import numpy as np
+from typing import List
+from shapely.geometry import Polygon
+
+def get_corners(agent):
+    width, length = agent['bb']
+    x, y = agent['pos']
+    heading = agent['heading']
+
+    dx = width / 2
+    dy = length / 2
+
+    corners = [
+        [x - dx, y - dy],
+        [x + dx, y - dy],
+        [x + dx, y + dy],
+        [x - dx, y + dy],
+    ]
+
+    # Rotate corners based on heading
+    rotated_corners = []
+    for corner in corners:
+        x_diff = corner[0] - x
+        y_diff = corner[1] - y
+        new_x = x + (x_diff * np.cos(heading) - y_diff * np.sin(heading))
+        new_y = y + (x_diff * np.sin(heading) + y_diff * np.cos(heading))
+        rotated_corners.append([new_x, new_y])
+
+    return rotated_corners
+
+### ------------------ Safety 1 - Collision rate --------------------------
+def check_collision(ego, exo):
+    # Calculate the distance between ego and exo
+    dist = np.sqrt((ego['pos'][0] - exo['pos'][0])**2 + (ego['pos'][1] - exo['pos'][1])**2)
+
+    # Calculate the sum of the ego and exo bounding box extents along the x and y axes
+    box_extents_sum = (ego['bb'][0] + exo['bb'][0]) / 2 + (ego['bb'][1] + exo['bb'][1]) / 2
+
+    # Check for collision
+    return dist < box_extents_sum
+
+def check_collision_by_considering_headings(ego, exo):
+    ego_corners = get_corners(ego)
+    exo_corners = get_corners(exo)
+    
+    ego_polygon = Polygon(ego_corners)
+    exo_polygon = Polygon(exo_corners)
+
+    return ego_polygon.intersects(exo_polygon)
+
+def find_collision_rate(ego_dict, exos_dict):
+    collision_count = 0
+    total_time_steps = len(ego_dict)
+    collided_exo_ids = set()
+
+    # Iterate through each time step in the episode
+    for time_step in range(total_time_steps):
+        ego_agent = ego_dict[time_step]
+        exo_agents = exos_dict[time_step]
+
+        # Chck for collisions with exo cars at the current time step
+        for exo_agent in exo_agents:
+            if check_collision_by_considering_headings(ego_agent, exo_agent) and exo_agent['id'] not in collided_exo_ids:
+                collision_count += 1
+                collided_exo_ids.add(exo_agent['id'])
+                #print(f"Collision at time step {time_step} with exo car {exo_agent} and ego car {ego_agent}")
+                break
+
+    # Calculate the collision rate
+    collision_rate = collision_count / total_time_steps
+    return collision_rate
+
+
+# ---------------- Safety 2 - Near-collision rate ------------------------
+
+
+def check_near_miss(ego, exo, near_miss_threshold):
+    ego_corners = get_corners(ego)
+    exo_corners = get_corners(exo)
+    
+    ego_polygon = Polygon(ego_corners)
+    exo_polygon = Polygon(exo_corners)
+
+    # Calculate the buffered ego polygon with the near_miss_threshold
+    buffered_ego_polygon = ego_polygon.buffer(near_miss_threshold)
+
+    return buffered_ego_polygon.intersects(exo_polygon)
+
+def find_near_miss_rate(ego_dict, exos_dict):
+    near_miss_count = 0
+    total_time_steps = len(ego_dict)
+    collided_exo_ids = set()
+    near_miss_threshold = 1.5
+
+    # Iterate through each time step in the episode
+    for time_step in range(total_time_steps):
+        ego_agent = ego_dict[time_step]
+        exo_agents = exos_dict[time_step]
+
+        # Chck for collisions with exo cars at the current time step
+        for exo_agent in exo_agents:
+            if check_near_miss(ego_agent, exo_agent, near_miss_threshold) and exo_agent['id'] not in collided_exo_ids:
+                near_miss_count += 1
+                collided_exo_ids.add(exo_agent['id'])
+                #print(f"Miss-collide at time step {time_step} with exo car {exo_agent} and ego car {ego_agent}")
+                break
+
+    # Calculate the collision rate
+    near_miss_rate = near_miss_count / total_time_steps
+    return near_miss_rate
+
+
+# ---------------- Safety 3 - Time-to-collision rate ------------------------
+
+def time_to_collision(ego, exo):
+    ego_vel = np.array(ego['vel'])
+    exo_vel = np.array(exo['vel'])
+    relative_vel = exo_vel - ego_vel
+    rv_norm = np.linalg.norm(relative_vel)
+
+    if rv_norm == 0:
+        return np.inf
+
+    ego_corners = get_corners(ego)
+    exo_corners = get_corners(exo)
+
+    min_ttc = np.inf
+
+    for t in np.arange(0, 10, 0.1):  # Sample times from 0 to 10 seconds with 0.1-second increments
+        future_ego_corners = [np.array(corner) + t * ego_vel for corner in ego_corners]
+        future_exo_corners = [np.array(corner) + t * exo_vel for corner in exo_corners]
+
+        ego_polygon = Polygon(future_ego_corners)
+        exo_polygon = Polygon(future_exo_corners)
+
+        if ego_polygon.intersects(exo_polygon):
+            min_ttc = min(min_ttc, t)
+            break
+
+    return min_ttc
+
+
+def find_ttc(ego_dict, exos_dict):
+    total_time_steps = len(ego_dict)
+    true_min_ttc = np.inf
+    mean_min_ttc = 0
+
+    # Iterate through each time step in the episode
+    for time_step in range(total_time_steps):
+        ego_agent = ego_dict[time_step]
+        exo_agents = exos_dict[time_step]
+
+        min_ttc = np.inf
+        # Chck for collisions with exo cars at the current time step
+        for exo_agent in exo_agents:
+            # We only calculate the TTC if the two agents are not colliding
+            if not check_collision_by_considering_headings(ego_agent, exo_agent):                    
+                ttc = time_to_collision(ego_agent, exo_agent)
+                min_ttc = min(min_ttc, ttc)
+
+        true_min_ttc = min(true_min_ttc, min_ttc)
+        if min_ttc != np.inf:
+            mean_min_ttc += min_ttc
+    
+    mean_min_ttc /= total_time_steps
+
+    # Calculate the collision rate
+    return true_min_ttc, mean_min_ttc
