@@ -26,7 +26,7 @@ logging.basicConfig(
 
 home = expanduser("~")
 #root_path = os.path.join(home, 'driving_data/lanegcn_005Hz_decentralized_1threads')
-root_path = os.path.join(home, 'driving_data/delxxx')
+root_path = os.path.join(home, 'driving_data/test/')
 
 
 if not os.path.isdir(root_path):
@@ -171,7 +171,7 @@ def update_global_config(cmd_args):
         config.random_seed = random.randint(0, 10000000)
 
     config.launch_summit = bool(cmd_args.launch_sim)
-    config.eps_length = cmd_args.eps_len
+    config.eps_length = 20 #cmd_args.eps_len
 
     config.monitor = cmd_args.monitor
     config.time_scale = float(cmd_args.t_scale)

@@ -2,6 +2,11 @@
 
 import os, sys
 
+scripts_path = os.path.dirname(os.path.realpath(__file__))
+src_path = os.path.dirname(os.path.dirname(scripts_path))
+summit_path = os.path.join(src_path, 'summit_connector', 'src')
+sys.path.append(summit_path)
+
 from summit import Summit
 import carla
 import logging
@@ -146,7 +151,87 @@ class NetworkAgentPath:
         next_pos = self.sumo_network.get_route_point_position(self.route_points[index + 1])
         return np.rad2deg(math.atan2(next_pos.y - pos.y, next_pos.x - pos.x))
 
+def get_initial_dim(ego_car):
 
+    pos = ego_car.get_location()
+    pos2D = carla.Vector2D(pos.x, pos.y)
+    vel = ego_car.get_velocity()
+    yaw = np.deg2rad(ego_car.get_transform().rotation.yaw)
+    v_2d = np.array([vel.x, vel.y, 0])
+    forward = np.array([math.cos(yaw), math.sin(yaw), 0])
+    speed = np.vdot(forward, v_2d)
+
+    wheels = ego_car.get_physics_control().wheels
+    wheel_positions = [w.position / 100 for w in wheels]
+
+    front_axle_center = (wheel_positions[0] + wheel_positions[1]) / 2
+    rear_axle_center = (wheel_positions[2] + wheel_positions[3]) / 2
+
+    car_front = math.sqrt(
+        (front_axle_center.x - pos.x) ** 2 +
+        (rear_axle_center.y - pos.y) ** 2
+    )
+    car_rear = math.sqrt(
+        (rear_axle_center.y - pos.y) ** 2 +
+        (rear_axle_center.y - pos.y) ** 2
+    )
+
+    car_width = 0
+    car_length = 0
+
+    car_yaw = yaw
+    tan_dir = (-math.sin(car_yaw), math.cos(car_yaw))
+    along_dir = (math.cos(car_yaw), math.sin(car_yaw))
+
+    car_bbox = Polygon()
+    corners = get_bounding_box_corners(ego_car)
+    for corner in corners:
+        car_bbox.points.append(Point32(
+            x=corner.x, y=corner.y, z=0.0))
+
+    for point in car_bbox.points:
+        p = (point.x - pos.x, point.y - pos.y)
+        proj = p[0] * tan_dir[0] + p[1] * tan_dir[1]
+        car_width = max(car_width, abs(proj))
+        proj = p[0] * along_dir[0] + p[1] * along_dir[1]
+        car_length = max(car_length, abs(proj))
+
+    car_width = car_width * 2
+    car_length = car_length * 2
+    car_front = car_length / 2.0
+
+    return car_width, car_front*2
+
+def cal_bb_extents(agent_type, pos, bb, heading_dir):
+    def dot_product(a, b):
+        return a[0] * b[0] + a[1] * b[1]
+
+    forward_vec = (math.cos(heading_dir), math.sin(heading_dir))
+    sideward_vec = (-math.sin(heading_dir), math.cos(heading_dir))
+
+    if agent_type == "ped":
+        bb_extent_x = 0.3
+        bb_extent_y = 0.3
+    else:
+        bb_extent_x = 0.0
+        bb_extent_y = 0.0
+
+    for point in bb:
+        point_minus_pos = (point.x - pos.x, point.y - pos.y)
+        bb_extent_x = max(dot_product(point_minus_pos, sideward_vec), bb_extent_x)
+        bb_extent_y = max(dot_product(point_minus_pos, forward_vec), bb_extent_y)
+
+    return bb_extent_x, bb_extent_y
+
+def calculate_heading(x1, y1, x2, y2):
+    delta_x = x2 - x1
+    delta_y = y2 - y1
+    heading_radians = math.atan2(delta_y, delta_x)
+    
+    # Make sure the heading is within [0, 2 * pi]
+    heading_radians = heading_radians % (2 * math.pi)
+    
+    return heading_radians
 
 class EgoVehicle(Summit):
     def __init__(self):
@@ -268,6 +353,11 @@ class EgoVehicle(Summit):
         self.bike_max_speed = 2.0 # Number got from summit_accessories
         self.pedestrain_max_speed = 1.0 # Number got from summit_accessories
         self.round = 0 # Each round number is a new episode
+        self.bb_x = None # Initialize at the first time
+        self.bb_y = None
+        self.agent_bb = {}
+        self.agent_history.set_ego_id(self.actor.id)
+
 
         # Draw in Carla
         #values = [get_position(self.path[i]) for i in range(len(self.path) - 1)]
@@ -477,38 +567,122 @@ class EgoVehicle(Summit):
 
     def update_gamma_control(self, event=None):
         # Updating gamma control every self.time_per_move seconds
-
-
-        # Logging all necessary before the gamma_control
+        import time
+        ss = time.time()
+        # ---------------- Logging all necessary before the gamma_control ------------ #
         # Log step
-        print('\n ---------------------- \n{} Roud 0 Step {}\n'.format(output_time(), self.round))
+        print('\n ---------------------- \n{} Round 0 Step {}\n'.format(output_time(), self.round))
         self.round += 1
+        # Logging car info
+        vel = self.actor.get_velocity()
+        yaw = np.deg2rad(self.actor.get_transform().rotation.yaw)
+        v_2d = np.array([vel.x, vel.y, 0])
+        forward = np.array([math.cos(yaw), math.sin(yaw), 0])
+        speed = np.vdot(forward, v_2d)
+        if self.bb_x is None:
+            car_width, car_front = get_initial_dim(self.actor)
+            self.bb_x = car_width
+            self.bb_y = car_front
+
+        print('car pos / heading / vel = ({:.5f}, {:.5f}) / {:.5f} / {:.5f} car dim {:.5f} {:.5f}'.format(
+            self.actor.get_location().x, self.actor.get_location().y,
+            np.deg2rad(self.actor.get_transform().rotation.yaw), speed, 
+            self.bb_x, self.bb_y))
+        
+        # Finding number of exo
+
+        exo_num = 0
+        actor_lists = []
+        for actor in self.world.get_actors():
+            if actor is None:
+                continue
+            
+            if not (isinstance(actor, carla.Vehicle) or isinstance(actor, carla.Walker)):
+                continue
+
+            if actor.id != self.actor.id:
+                actor_lists.append(actor)
+        sorted_actor_list = sorted(actor_lists, key=lambda actor: (get_position(actor) - get_position(self.actor)).length())
+        sorted_actors = sorted_actor_list[:20]
+        exo_num = len(sorted_actors)
+
+        print('{} pedestrians'.format(exo_num))
+
+        exo_id_in_orderd = []
+        for index, actor in enumerate(sorted_actors):
+            exo_id_in_orderd.append(actor.id)
+            vel = self.actor.get_velocity()
+            yaw = np.deg2rad(self.actor.get_transform().rotation.yaw)
+            v_2d = np.array([vel.x, vel.y, 0])
+            forward = np.array([math.cos(yaw), math.sin(yaw), 0])
+            speed = np.vdot(forward, v_2d)
+            agent_type = "ped" if isinstance(actor, carla.Walker) else "car"
+
+            if actor.id not in self.agent_bb.keys():
+                bbox = Polygon()
+                #print('[Phongxx] ', actor)
+                corners = get_bounding_box_corners(actor, expand=0.3)
+                for corner in corners:
+                    bbox.points.append(Point32(
+                        x=corner.x, y=corner.y, z=0.0))
+                bb_extent_x, bb_extent_y = cal_bb_extents(agent_type, actor.get_location(), bbox.points, yaw)
+                self.agent_bb[actor.id] = [bb_extent_x, bb_extent_y]
+
+            
+            print('agent {}: id / pos / speed / vel / intention / dist2car / infront =  ' \
+                '{} / ({:.3f}, {:.3f}) / {:.3f} / ({:.3f}, {:.3f}) / path_0 / {:.3f} / {} (mode) att (type) {}' \
+                ' (bb) {:.3f} {:.3f} (cross) {} (heading) {:.3f}'.format(
+            index, actor.id, actor.get_location().x, actor.get_location().y, 
+            speed, vel.x, vel.y, 
+            math.sqrt((actor.get_location().x - self.actor.get_location().x)**2 + 
+                        (actor.get_location().y - self.actor.get_location().y)**2),
+            1, 0 if agent_type == "car" else 1, self.agent_bb[actor.id][0], self.agent_bb[actor.id][1], 0, yaw
+            ))
+        
         # Log agent's intended path
         logging_temp_pos = [self.path.get_position(i) for i in range(len(self.path.route_points) - 1)]
-        print("Path: " + ";".join(["{} {}".format(round(pos.x,3), round(pos.y,3)) for pos in logging_temp_pos]))
-        # Log agent's info
-        print('Ego-agent x: {} y: {} z: {} | speed.x {} speed.y {} | control.th {}, control.st {}'.format(
-                output_time(), 
-                self.actor.get_location().x, self.actor.get_location().y, self.actor.get_location().z,
-                self.actor.get_velocity().x, self.actor.get_velocity().y, 
-                self.actor.get_control().throttle,
-                self.actor.get_control().steer))
-        ### End logging
+        print("Path: " + " ".join(["{} {}".format(round(pos.x,3), round(pos.y,3)) for pos in logging_temp_pos]))
+        ### ---------------- End logging --------------------- ###
 
 
         # Step 1. Add agent's observation into history
-        for (i, actor) in enumerate(self.world.get_actors()):
+        curr_positions = {} # for finding yaw in the logging 
+        for (i, actor) in enumerate(sorted_actors + [self.actor]):
             pos = get_position(actor)
             pos_x, pos_y = pos.x, pos.y
             if actor.id == self.actor.id:
                 self.agent_history.add_ego_observation(pos_x, pos_y)
-            else:
+            elif actor in sorted_actors:
                 self.agent_history.add_exo_observation(actor.id, pos_x, pos_y)
+            else:
+                continue
+            curr_positions[actor.id] = pos
         
         # Step 2. Predict agent's future trajectory
         agent_observation = self.agent_history.build_request()
         # Prediction is a dictionary {'agent_id': int, 'agent_prediction': [(x1,y1), (x2,y2), ...], 'agent_prob': float}
         agent_prediction = self.moped_service.predict(agent_observation)
+
+        ### -------- Logging agent's prediction -------- ###
+        
+        for future_frame in range(len(agent_prediction[self.actor.id]['agent_prediction'])):
+            ego_prediction = agent_prediction[self.actor.id]['agent_prediction'][future_frame]
+            ego_heading = calculate_heading(curr_positions[self.actor.id].x, curr_positions[self.actor.id].y,
+                                             ego_prediction[0], ego_prediction[1])
+            print('predicted_car_{} {:.3f} {:.3f} {:.3f}'.format(future_frame, ego_prediction[0], ego_prediction[1], ego_heading))
+            tempstr = 'predicted_agents_{} '.format(future_frame)
+            curr_positions[self.actor.id] = carla.Vector2D(x=ego_prediction[0], y=ego_prediction[1])
+            for exo_id in exo_id_in_orderd:
+                exo_prediction = agent_prediction[exo_id]['agent_prediction'][future_frame]
+                exo_heading = calculate_heading(curr_positions[exo_id].x, curr_positions[exo_id].y,
+                                                exo_prediction[0], exo_prediction[1])
+                tempstr += ' {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}'.format(exo_prediction[0], exo_prediction[1], exo_heading, 
+                                              self.agent_bb[exo_id][0], self.agent_bb[exo_id][1])
+                curr_positions[exo_id] = carla.Vector2D(x=exo_prediction[0], y=exo_prediction[1])
+
+            print(tempstr)
+
+        ### -------- End logging -------- ###
 
         gamma = carla.RVOSimulator()
 
@@ -539,7 +713,7 @@ class EgoVehicle(Summit):
             gamma.set_agent_bounding_box_corners(gamma_id, bounding_box_corners)
 
             ## Set preferred velocity and path based on MOPED prediction of next 10 steps
-            if actor.id in agent_prediction:
+            if actor.id in agent_prediction: # The most near 20 agents are predicted
                 predictions = agent_prediction[actor.id]['agent_prediction']
                 target_predicted_xy = predictions[min(MOPED_FUTURE_PREDICTION_LENGTH-1, len(predictions)-1)]
                 target_predicted_vector = carla.Vector2D(target_predicted_xy[0], target_predicted_xy[1])
@@ -549,12 +723,12 @@ class EgoVehicle(Summit):
                 elif type_tag == 'Car':
                     pref_vel = pref_vel.make_unit_vector() * self.car_max_speed
                 else:
-                    pref_vel = pref_vel.make_unit_vector() * self.pedes_max_speed
+                    pref_vel = pref_vel.make_unit_vector() * self.pedestrain_max_speed
 
                 gamma.set_agent_pref_velocity(gamma_id, pref_vel)
                 path_forward = (target_predicted_vector - get_position(actor)).make_unit_vector()
                 gamma.set_agent_path_forward(gamma_id, path_forward)
-            else:
+            else: # The farer is not predicted
                 gamma.set_agent_pref_velocity(gamma_id, get_velocity(actor))
             
             gamma_id += 1
@@ -598,6 +772,10 @@ class EgoVehicle(Summit):
                     VEHICLE_STEER_KP * get_signed_angle_diff(target_vel, get_forward_direction(self.actor)), 
                     -45.0, 45.0) / self.steer_angle_range,
                 -1.0, 1.0)
+        
+        print("Round {} Executing action speed: {:.2f} steer: {:.2f}".format(self.round, self.gamma_cmd_speed, self.gamma_cmd_steer))
+        ee = time.time()
+        print("Time taken for Round {} GAMMA step: {:.2f}".format(self.round, ee - ss))
 
     def update_crowd_range(self):
         # Cap frequency so that GAMMA loop doesn't die.

@@ -10,9 +10,8 @@ ORIGINAL_EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ = 20 #7, if 10 times slower, use 2
 ORIGINAL_EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME = 0.02 #0.02 # Updating every 0.5 seconds -> Hz = 2, if 10 times slower, use 0.2
 
 # ORIGNAL
-# EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ = 20 #20, if 10 times slower, use 2
 
-
+EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ = 20 #20, if 10 times slower, use 2
 
 
 ## 3 times slower (CV/CA)
@@ -49,5 +48,5 @@ ORIGINAL_EGO_VEHICLE_PUBLISH_INFO_FREQUENCY_IN_TIME = 0.02 #0.02 # Updating ever
 
 ## 600 times slower (same Hz)
 
-EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ = 0.0333 #20, if 10 times slower, use 2
+#EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ = 0.0333 #20, if 10 times slower, use 2
 

@@ -28,7 +28,7 @@ class MotionPredictionService(object):
 
     def predict(self, agents_data):
         '''
-            :param data: a dictionary {'agent_id': int, 'agent_history': [(x1,y1), (x2,y2), ...], 'agent_type': int}
+            :param data: a dictionary {'agent_id': int, 'agent_history': [(x1,y1), (x2,y2), ...], 'agent_type': int, 'is_ego': bool}
                     Length of agent_history is any arbitrary but must be less than MAX_HISTORY_MOTION_PREDICTION
             
             Return
@@ -39,8 +39,9 @@ class MotionPredictionService(object):
         
         agent_id_list = []
         xy_pos_list = []
+        ego_id = -1
         for agent_id, agent_data in agents_data.items():
-            if agent_id != -1: # -1 is the ego agent, so we add at last
+            if agent_data['is_ego'] == False: # -1 is the ego agent, so we add at last
                 xy_pos = np.array(agent_data['agent_history'])
                 # first axis, we pad width=0 at beginning and pad width=MAX_HISTORY_MOTION_PREDICTION-xy_pos.shape[0] at the end
                 # second axis (which is x and y axis), we do not pad anything as it does not make sense to pad anything
@@ -48,14 +49,16 @@ class MotionPredictionService(object):
                                 mode="edge")
                 xy_pos_list.append(xy_pos)
                 agent_id_list.append(agent_id)
+            else:
+                ego_id = agent_id
 
         # Add ego agent at last
-        ego_agent_data = agents_data[-1] # Ego agent has id -1
+        ego_agent_data = agents_data[ego_id] # Ego agent has id -1
         xy_pos = np.array(ego_agent_data['agent_history'])
         xy_pos = np.pad(xy_pos, pad_width=((0, MAX_HISTORY_MOTION_PREDICTION - xy_pos.shape[0]), (0, 0)),
                                 mode="edge")
         xy_pos_list.append(xy_pos)
-        agent_id_list.append(agent_id)
+        agent_id_list.append(ego_id)
 
         # Creating history
         agents_history = np.stack(xy_pos_list)  # Shape (number_agents, observation_len, 2)

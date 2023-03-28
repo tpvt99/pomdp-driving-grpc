@@ -20,6 +20,7 @@ class History():
         self.ego_history = []
         self.last_exo_update = {}
         self.last_ego_update = None
+        self.ego_id = -1
 
     def add_exo_observation(self, agent_id, x, y):
         '''
@@ -59,13 +60,14 @@ class History():
         '''
         request = {}
         for agent_id, history in self.exo_history.items():
-            request[agent_id] = {'agent_id': agent_id, 'agent_type': AgentType.car, 'agent_history': history}
-            if agent_id == -1:
-                print("Agent ID of -1 is not allowed. Please use another ID for the exo agent.")
+            request[agent_id] = {'agent_id': agent_id, 'agent_type': AgentType.car, 'agent_history': history, 'is_ego': False}
 
-        request[-1] = {'agent_id': -1, 'agent_type': AgentType.car, 'agent_history': self.ego_history}
+        request[self.ego_id] = {'agent_id': self.ego_id, 'agent_type': AgentType.car, 'agent_history': self.ego_history, 'is_ego': True}
         
         return request
+    
+    def set_ego_id(self, ego_id):
+        self.ego_id = ego_id
 
     def __str__(self):
         return "Exo History: {}\n Ego History: {}".format(self.exo_history, self.ego_history)
