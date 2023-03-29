@@ -12,6 +12,7 @@ class History():
         max_observations: maximum number of observations to store
         time_interval: time interval between two observations
         time_threshold: time threshold to determine if the agent is stuck
+        ego_history: history of ego agent, list of (x, y) tuples
         '''
         self.max_observations = max_observations
         self.time_interval = time_interval

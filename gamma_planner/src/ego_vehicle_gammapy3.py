@@ -628,14 +628,13 @@ class EgoVehicle(Summit):
                 bb_extent_x, bb_extent_y = cal_bb_extents(agent_type, actor.get_location(), bbox.points, yaw)
                 self.agent_bb[actor.id] = [bb_extent_x, bb_extent_y]
 
-            
+            dist = math.sqrt((actor.get_location().x - self.actor.get_location().x)**2 + 
+                        (actor.get_location().y - self.actor.get_location().y)**2)
             print('agent {}: id / pos / speed / vel / intention / dist2car / infront =  ' \
                 '{} / ({:.3f}, {:.3f}) / {:.3f} / ({:.3f}, {:.3f}) / path_0 / {:.3f} / {} (mode) att (type) {}' \
                 ' (bb) {:.3f} {:.3f} (cross) {} (heading) {:.3f}'.format(
             index, actor.id, actor.get_location().x, actor.get_location().y, 
-            speed, vel.x, vel.y, 
-            math.sqrt((actor.get_location().x - self.actor.get_location().x)**2 + 
-                        (actor.get_location().y - self.actor.get_location().y)**2),
+            speed, vel.x, vel.y, dist,
             1, 0 if agent_type == "car" else 1, self.agent_bb[actor.id][0], self.agent_bb[actor.id][1], 0, yaw
             ))
         
@@ -660,17 +659,27 @@ class EgoVehicle(Summit):
         
         # Step 2. Predict agent's future trajectory
         agent_observation = self.agent_history.build_request()
+
         # Prediction is a dictionary {'agent_id': int, 'agent_prediction': [(x1,y1), (x2,y2), ...], 'agent_prob': float}
         agent_prediction = self.moped_service.predict(agent_observation)
 
+        ### A few loggings
+        print('Before prediction with agent observation:')
+        for agent_id in agent_observation.keys():
+            print('Before prediction history: {}, agent: {}'.format(agent_id, agent_observation[agent_id]))
+            print('Before prediction padded obs: {}, agent: {}'.format(agent_id, agent_prediction['observation_array'][agent_id]))
+        ## End Logging
+        
+
         ### -------- Logging agent's prediction -------- ###
+        print('Prediction status: {}'.format('Error' if agent_prediction['is_error'] else 'Success'))
         
         for future_frame in range(len(agent_prediction[self.actor.id]['agent_prediction'])):
             ego_prediction = agent_prediction[self.actor.id]['agent_prediction'][future_frame]
             ego_heading = calculate_heading(curr_positions[self.actor.id].x, curr_positions[self.actor.id].y,
                                              ego_prediction[0], ego_prediction[1])
             print('predicted_car_{} {:.3f} {:.3f} {:.3f}'.format(future_frame, ego_prediction[0], ego_prediction[1], ego_heading))
-            tempstr = 'predicted_agents_{} '.format(future_frame)
+            tempstr = 'predicted_agents_{}'.format(future_frame)
             curr_positions[self.actor.id] = carla.Vector2D(x=ego_prediction[0], y=ego_prediction[1])
             for exo_id in exo_id_in_orderd:
                 exo_prediction = agent_prediction[exo_id]['agent_prediction'][future_frame]
@@ -1038,7 +1047,7 @@ class EgoVehicle(Summit):
                 control.brake = -speed_control
                 control.hand_brake = False
 
-            print('{} [PHONG] Ego_vehicle.py dt {}, speed_error {}, speed_control {} cmd_sp {} curr_sp {} cmd_st {} throttle {}, steer {}'.format(
+            print('\n{} [PHONG] Ego_vehicle.py dt {}, speed_error {}, speed_control {} cmd_sp {} curr_sp {} cmd_st {} throttle {}, steer {}'.format(
             output_time(), dt, round(speed_error,2), round(speed_control,2),  
             round(cmd_speed, 2), round(cur_speed,2), round(cmd_steer, 2), round(control.throttle, 2), round(control.steer, 2)))
 

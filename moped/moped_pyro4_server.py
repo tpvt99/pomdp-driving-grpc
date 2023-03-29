@@ -34,12 +34,16 @@ class MotionPredictionService(object):
             Return
             :return: a dictionary {'agent_id': int, 'agent_prediction': [(x1,y1), (x2,y2), ...], 'agent_prob': float}
                     Length of agent_prediction is self.pred_len
+                    We also add 2 keys to dictionary to ensure the reproducible between simulator and predictor
+                    'observation_array': numpy array (number_agents, observation_len, 2)
+                    'is_error': bool to indicate if any error happens
         '''
         # Step 1. From agents_data, build numpy array (number_agents, observation_len, 2)
         
         agent_id_list = []
         xy_pos_list = []
         ego_id = -1
+        padedd_observation_array = {} # to store padded observation array and return for reproducible results
         for agent_id, agent_data in agents_data.items():
             if agent_data['is_ego'] == False: # -1 is the ego agent, so we add at last
                 xy_pos = np.array(agent_data['agent_history'])
@@ -49,6 +53,7 @@ class MotionPredictionService(object):
                                 mode="edge")
                 xy_pos_list.append(xy_pos)
                 agent_id_list.append(agent_id)
+                padedd_observation_array[agent_id] = [(x, y) for x, y in xy_pos]
             else:
                 ego_id = agent_id
 
@@ -57,6 +62,8 @@ class MotionPredictionService(object):
         xy_pos = np.array(ego_agent_data['agent_history'])
         xy_pos = np.pad(xy_pos, pad_width=((0, MAX_HISTORY_MOTION_PREDICTION - xy_pos.shape[0]), (0, 0)),
                                 mode="edge")
+        padedd_observation_array[ego_id] = [(x, y) for x, y in xy_pos]
+
         xy_pos_list.append(xy_pos)
         agent_id_list.append(ego_id)
 
@@ -65,10 +72,12 @@ class MotionPredictionService(object):
 
         #print(f"Agents history is {agents_history}")
         #print(f"Shape of agents history is {agents_history.shape}")
-            
+        
+        is_error = False
         try:
             probs, predictions = self.planner.do_predictions(agents_history)
         except Exception as e:
+            is_error = True
             logging.info(f"Error in prediction: {e} with inputs {agents_history}")
             probs = np.ones(agents_history.shape[0])
             # Predictions is the last known position but with shape (number_agents, self.pred_len, 2)
@@ -84,6 +93,9 @@ class MotionPredictionService(object):
 
             data_response[agentID] = {'agent_prediction': agent_predictions, 'agent_prob': prob_info, 'agent_id': agentID}
 
+        # Adding 3 keys
+        data_response['observation_array'] = padedd_observation_array
+        data_response['is_error'] = is_error
         return data_response
 
 def main(args):
