@@ -126,15 +126,15 @@ def parse_cmd_args():
                         default=0,
                         help='debug mode')
     parser.add_argument('--num-car',
-                        default='1',
+                        default='20',
                         help='Number of cars to spawn (default: 20)',
                         type=int)
     parser.add_argument('--num-bike',
-                        default='1',
+                        default='20',
                         help='Number of bikes to spawn (default: 20)',
                         type=int)
     parser.add_argument('--num-pedestrian',
-                        default='1',
+                        default='20',
                         help='Number of pedestrians to spawn (default: 20)',
                         type=int)
     return parser.parse_args()
@@ -171,7 +171,7 @@ def update_global_config(cmd_args):
         config.random_seed = random.randint(0, 10000000)
 
     config.launch_summit = bool(cmd_args.launch_sim)
-    config.eps_length = 20 #cmd_args.eps_len
+    config.eps_length = cmd_args.eps_len
 
     config.monitor = cmd_args.monitor
     config.time_scale = float(cmd_args.t_scale)

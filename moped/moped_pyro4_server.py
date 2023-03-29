@@ -22,7 +22,7 @@ from moped_implementation.planner_wrapper import PlannerWrapper
 class MotionPredictionService(object):
 
     def __init__(self):
-        self.pred_len = 10 # Predict 10 frames into the future as 10 * 0.3 = 3 seconds so it is good enough
+        self.pred_len = 30 # Predict 10 frames into the future as 10 * 0.3 = 3 seconds so it is good enough
         self.planner = PlannerWrapper(pred_len=self.pred_len)
 
 
@@ -47,9 +47,10 @@ class MotionPredictionService(object):
         for agent_id, agent_data in agents_data.items():
             if agent_data['is_ego'] == False: # -1 is the ego agent, so we add at last
                 xy_pos = np.array(agent_data['agent_history'])
-                # first axis, we pad width=0 at beginning and pad width=MAX_HISTORY_MOTION_PREDICTION-xy_pos.shape[0] at the end
+                # NOTE, In pyro4 version, I padd at the beginning
+                # first axis, we pad width=0 at end and pad width=MAX_HISTORY_MOTION_PREDICTION-xy_pos.shape[0] at the beginning
                 # second axis (which is x and y axis), we do not pad anything as it does not make sense to pad anything
-                xy_pos = np.pad(xy_pos, pad_width=((0, MAX_HISTORY_MOTION_PREDICTION - xy_pos.shape[0]), (0, 0)),
+                xy_pos = np.pad(xy_pos, pad_width=((MAX_HISTORY_MOTION_PREDICTION - xy_pos.shape[0], 0), (0, 0)),
                                 mode="edge")
                 xy_pos_list.append(xy_pos)
                 agent_id_list.append(agent_id)

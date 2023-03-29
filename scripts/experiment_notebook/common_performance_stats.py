@@ -228,7 +228,7 @@ def ade_fde(pred_car_list, pred_exo_list, ego_list, exos_list):
 
         # Skip the first 20 timesteps because the prediction is not accurate
         if timestep < 20:
-            return None, None, None, None
+            continue
 
         errors = []
         num_pred = len(pred_car_list[timestep])
@@ -251,28 +251,45 @@ def ade_fde(pred_car_list, pred_exo_list, ego_list, exos_list):
 
         # Skip the first 20 timesteps because the prediction is not accurate
         if timestep < 20:
-            return None, None, None, None
+            continue
 
         for agent_index, exo_agent in enumerate(exos_list[timestep]):
             agent_info = exo_agent
             agent_id = agent_info['id']
 
+            if timestep not in pred_exo_list.keys():
+                continue
             num_pred = len(pred_exo_list[timestep])
             exo_pred_at_timestep = pred_exo_list[timestep]
+            xxx = []
+            ggt = []
             errors = []
             for j in range(num_pred):
                 if (timestep + j+1) not in exos_list.keys():
                     break
                 all_agent_ids_at_next_timestep = [agent['id'] for agent in exos_list[timestep+j+1]]
+                all_agent_ids_at_prev_20_timestep = [agent['id'] for agent in exos_list[timestep-20]]
+                # If agent is not in the next timestep, then there is no point in calculating the error
                 if agent_id not in all_agent_ids_at_next_timestep:
                     break
+                # If agent not in prev 20 timestep, then it not have enough history to calculate the error
+                if agent_id not in all_agent_ids_at_prev_20_timestep:
+                    continue
                 agent_index_at_next_timestep = all_agent_ids_at_next_timestep.index(agent_id)
                 if agent_id in all_agent_ids_at_next_timestep:
                     exo_pred = exo_pred_at_timestep[j][agent_index]['pos']
+                    xxx.append(exo_pred)
                     exo_gt_next = exos_list[timestep+j+1][agent_index_at_next_timestep]['pos']
+                    ggt.append(exo_gt_next)
                     error = displacement_error(exo_pred, exo_gt_next)
                     errors.append(error)
-
+            if len(xxx) >= 10 and np.abs(np.diff(np.array(xxx), axis=0)).sum() <= 0.1:
+                try:
+                    assert False, f"xxx is {xxx}, agent_id is {agent_id} at timestep {timestep}"
+                except:
+                    continue
+            #if np.mean(errors) > 4:
+                #assert False, f"error is {errors}, agent_id is {agent_id} at timestep {timestep} xxx is {xxx} ggt is {ggt}"
             if len(errors) > 0:
                 if agent_id not in exo_ade:
                     exo_ade[agent_id] = []
