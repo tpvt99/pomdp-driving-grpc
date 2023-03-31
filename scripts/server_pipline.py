@@ -87,7 +87,7 @@ if __name__ == '__main__':
         print("Executing: "+shell_cmd)
         docker_proc = subprocess.call(shell_cmd, shell = True)
 
-        print("Docker exited, closing simulator.")
+        print("Docker exited, closing simulator. Done trials {}/{}".format(trial+1, config.trials))
         os.killpg(os.getpgid(summit_proc.pid), signal.SIGKILL)
 
 

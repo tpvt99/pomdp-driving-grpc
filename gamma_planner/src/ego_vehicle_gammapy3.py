@@ -16,6 +16,7 @@ import numpy as np
 import sys
 import inspect
 from datetime import datetime
+import threading
 
 # Get the module object for the imported Summit class/function
 summit_module = sys.modules[Summit.__module__]
@@ -233,6 +234,16 @@ def calculate_heading(x1, y1, x2, y2):
     
     return heading_radians
 
+print_lock = threading.Lock()
+
+def print_safely(message):
+    with print_lock:
+        print(message)
+
+def flush_safely():
+    with print_lock:
+        sys.stdout.flush()
+
 class EgoVehicle(Summit):
     def __init__(self):
         super(EgoVehicle, self).__init__()
@@ -357,7 +368,7 @@ class EgoVehicle(Summit):
         self.bb_y = None
         self.agent_bb = {}
         self.agent_history.set_ego_id(self.actor.id)
-
+        self.ego_dead = False
 
         # Draw in Carla
         #values = [get_position(self.path[i]) for i in range(len(self.path) - 1)]
@@ -371,7 +382,7 @@ class EgoVehicle(Summit):
     def get_position(self):
         location = self.actor.get_location()
         if location.z < -0.3:
-            print("Car dropped under ground")
+            print_safely("Car dropped under ground")
             self.ego_dead_pub.publish(True)
         return carla.Vector2D(location.x, location.y)
 
@@ -566,12 +577,20 @@ class EgoVehicle(Summit):
         self.last_decision = lane_decision
 
     def update_gamma_control(self, event=None):
+        if not self.agents_ready:
+            print_safely('Agents not ready yet, skipping gamma control update {}'.format(output_time()))
+            return
+        
+        if self.ego_dead:
+            print_safely('Ego vehicle dead, skipping gamma control update {}'.format(output_time()))
+            return
+        
         # Updating gamma control every self.time_per_move seconds
         import time
         ss = time.time()
         # ---------------- Logging all necessary before the gamma_control ------------ #
         # Log step
-        print('\n ---------------------- \n{} Round 0 Step {}\n'.format(output_time(), self.round))
+        print_safely('\n ---------------------- \n{} Round 0 Step {}\n'.format(output_time(), self.round))
         self.round += 1
         # Logging car info
         vel = self.actor.get_velocity()
@@ -584,7 +603,7 @@ class EgoVehicle(Summit):
             self.bb_x = car_width
             self.bb_y = car_front
 
-        print('car pos / heading / vel = ({:.5f}, {:.5f}) / {:.5f} / {:.5f} car dim {:.5f} {:.5f}'.format(
+        print_safely('car pos / heading / vel = ({:.5f}, {:.5f}) / {:.5f} / {:.5f} car dim {:.5f} {:.5f}'.format(
             self.actor.get_location().x, self.actor.get_location().y,
             np.deg2rad(self.actor.get_transform().rotation.yaw), speed, 
             self.bb_x, self.bb_y))
@@ -603,44 +622,20 @@ class EgoVehicle(Summit):
             if actor.id != self.actor.id:
                 actor_lists.append(actor)
         sorted_actor_list = sorted(actor_lists, key=lambda actor: (get_position(actor) - get_position(self.actor)).length())
+
+        print_safely("sorted_actor_list: {}".format([actor.id for actor in sorted_actor_list]))
+        print_safely("sorted actor dist: {}".format([round((get_position(actor) - get_position(self.actor)).length(), 3) 
+                                                 for actor in sorted_actor_list]))
         sorted_actors = sorted_actor_list[:20]
         exo_num = len(sorted_actors)
 
-        print('{} pedestrians'.format(exo_num))
+        print_safely('{} pedestrians'.format(exo_num))
 
-        exo_id_in_orderd = []
-        for index, actor in enumerate(sorted_actors):
-            exo_id_in_orderd.append(actor.id)
-            vel = self.actor.get_velocity()
-            yaw = np.deg2rad(self.actor.get_transform().rotation.yaw)
-            v_2d = np.array([vel.x, vel.y, 0])
-            forward = np.array([math.cos(yaw), math.sin(yaw), 0])
-            speed = np.vdot(forward, v_2d)
-            agent_type = "ped" if isinstance(actor, carla.Walker) else "car"
-
-            if actor.id not in self.agent_bb.keys():
-                bbox = Polygon()
-                #print('[Phongxx] ', actor)
-                corners = get_bounding_box_corners(actor, expand=0.3)
-                for corner in corners:
-                    bbox.points.append(Point32(
-                        x=corner.x, y=corner.y, z=0.0))
-                bb_extent_x, bb_extent_y = cal_bb_extents(agent_type, actor.get_location(), bbox.points, yaw)
-                self.agent_bb[actor.id] = [bb_extent_x, bb_extent_y]
-
-            dist = math.sqrt((actor.get_location().x - self.actor.get_location().x)**2 + 
-                        (actor.get_location().y - self.actor.get_location().y)**2)
-            print('agent {}: id / pos / speed / vel / intention / dist2car / infront =  ' \
-                '{} / ({:.3f}, {:.3f}) / {:.3f} / ({:.3f}, {:.3f}) / path_0 / {:.3f} / {} (mode) att (type) {}' \
-                ' (bb) {:.3f} {:.3f} (cross) {} (heading) {:.3f}'.format(
-            index, actor.id, actor.get_location().x, actor.get_location().y, 
-            speed, vel.x, vel.y, dist,
-            1, 0 if agent_type == "car" else 1, self.agent_bb[actor.id][0], self.agent_bb[actor.id][1], 0, yaw
-            ))
+        
         
         # Log agent's intended path
         logging_temp_pos = [self.path.get_position(i) for i in range(len(self.path.route_points) - 1)]
-        print("Path: " + " ".join(["{} {}".format(round(pos.x,3), round(pos.y,3)) for pos in logging_temp_pos]))
+        print_safely("Path: " + " ".join(["{} {}".format(round(pos.x,3), round(pos.y,3)) for pos in logging_temp_pos]))
         ### ---------------- End logging --------------------- ###
 
 
@@ -658,38 +653,81 @@ class EgoVehicle(Summit):
             curr_positions[actor.id] = pos
         
         # Step 2. Predict agent's future trajectory
+        # dict[agent_id] = {agent_id': agent_id, 'agent_type': AgentType.car, 'agent_history': history, 'is_ego': False/True}
         agent_observation = self.agent_history.build_request()
 
         # Prediction is a dictionary {'agent_id': int, 'agent_prediction': [(x1,y1), (x2,y2), ...], 'agent_prob': float}
         agent_prediction = self.moped_service.predict(agent_observation)
-
-        ### A few loggings
-        print('Before prediction with agent observation:')
-        for agent_id in agent_observation.keys():
-            print('Before prediction history: {}, agent: {}'.format(agent_id, agent_observation[agent_id]))
-            print('Before prediction padded obs: {}, agent: {}'.format(agent_id, agent_prediction['observation_array'][agent_id]))
-        ## End Logging
         
+        if agent_prediction['is_error']:
+            # If any errors, we just do not print predictions. However we still continue to control the agent
+            print_safely('Error in prediction')
+        else:
+            
+            # If prediction succeeds, we start to print agent current position
+            # We do this becaus we print sequence of agent's without id and print prediction without id also
+            # That's why we need to wait after prediction to print agent's current position
+            exo_id_in_orderd = []
+            for index, actor in enumerate(sorted_actors):
 
-        ### -------- Logging agent's prediction -------- ###
-        print('Prediction status: {}'.format('Error' if agent_prediction['is_error'] else 'Success'))
-        
-        for future_frame in range(len(agent_prediction[self.actor.id]['agent_prediction'])):
-            ego_prediction = agent_prediction[self.actor.id]['agent_prediction'][future_frame]
-            ego_heading = calculate_heading(curr_positions[self.actor.id].x, curr_positions[self.actor.id].y,
-                                             ego_prediction[0], ego_prediction[1])
-            print('predicted_car_{} {:.3f} {:.3f} {:.3f}'.format(future_frame, ego_prediction[0], ego_prediction[1], ego_heading))
-            tempstr = 'predicted_agents_{}'.format(future_frame)
-            curr_positions[self.actor.id] = carla.Vector2D(x=ego_prediction[0], y=ego_prediction[1])
-            for exo_id in exo_id_in_orderd:
-                exo_prediction = agent_prediction[exo_id]['agent_prediction'][future_frame]
-                exo_heading = calculate_heading(curr_positions[exo_id].x, curr_positions[exo_id].y,
-                                                exo_prediction[0], exo_prediction[1])
-                tempstr += ' {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}'.format(exo_prediction[0], exo_prediction[1], exo_heading, 
-                                              self.agent_bb[exo_id][0], self.agent_bb[exo_id][1])
-                curr_positions[exo_id] = carla.Vector2D(x=exo_prediction[0], y=exo_prediction[1])
+                if actor.id not in agent_prediction.keys():
+                    continue
 
-            print(tempstr)
+                exo_id_in_orderd.append(actor.id)
+                vel = self.actor.get_velocity()
+                yaw = np.deg2rad(self.actor.get_transform().rotation.yaw)
+                v_2d = np.array([vel.x, vel.y, 0])
+                forward = np.array([math.cos(yaw), math.sin(yaw), 0])
+                speed = np.vdot(forward, v_2d)
+                agent_type = "ped" if isinstance(actor, carla.Walker) else "car"
+
+                if actor.id not in self.agent_bb.keys():
+                    bbox = Polygon()
+                    #print('[Phongxx] ', actor)
+                    corners = get_bounding_box_corners(actor, expand=0.3)
+                    for corner in corners:
+                        bbox.points.append(Point32(
+                            x=corner.x, y=corner.y, z=0.0))
+                    bb_extent_x, bb_extent_y = cal_bb_extents(agent_type, actor.get_location(), bbox.points, yaw)
+                    self.agent_bb[actor.id] = [bb_extent_x, bb_extent_y]
+
+                dist = math.sqrt((actor.get_location().x - self.actor.get_location().x)**2 + 
+                            (actor.get_location().y - self.actor.get_location().y)**2)
+                print_safely('agent {}: id / pos / speed / vel / intention / dist2car / infront =  ' \
+                    '{} / ({:.3f}, {:.3f}) / {:.3f} / ({:.3f}, {:.3f}) / path_0 / {:.3f} / {} (mode) att (type) {}' \
+                    ' (bb) {:.3f} {:.3f} (cross) {} (heading) {:.3f}'.format(
+                index, actor.id, actor.get_location().x, actor.get_location().y, 
+                speed, vel.x, vel.y, dist,
+                1, 0 if agent_type == "car" else 1, self.agent_bb[actor.id][0], self.agent_bb[actor.id][1], 0, yaw
+                ))
+
+            ### A few loggings before printing prediction
+            print_safely('Before prediction with agent observation:')
+            for agent_id in agent_observation.keys():
+                print_safely('Before prediction history: agent {}: {}'.format(agent_id, agent_observation[agent_id]))
+                print_safely('Before prediction padded obs: agent {}: {}'.format(agent_id, agent_prediction['observation_array'][agent_id]))
+            ## End Logging
+            
+
+            ### -------- Logging agent's prediction -------- ###
+            print_safely('Prediction status: {}'.format('Error' if agent_prediction['is_error'] else 'Success'))
+            
+            for future_frame in range(len(agent_prediction[self.actor.id]['agent_prediction'])):
+                ego_prediction = agent_prediction[self.actor.id]['agent_prediction'][future_frame]
+                ego_heading = calculate_heading(curr_positions[self.actor.id].x, curr_positions[self.actor.id].y,
+                                                ego_prediction[0], ego_prediction[1])
+                print_safely('predicted_car_{} {:.3f} {:.3f} {:.3f}'.format(future_frame, ego_prediction[0], ego_prediction[1], ego_heading))
+                tempstr = 'predicted_agents_{}'.format(future_frame)
+                curr_positions[self.actor.id] = carla.Vector2D(x=ego_prediction[0], y=ego_prediction[1])
+                for exo_id in exo_id_in_orderd:
+                    exo_prediction = agent_prediction[exo_id]['agent_prediction'][future_frame]
+                    exo_heading = calculate_heading(curr_positions[exo_id].x, curr_positions[exo_id].y,
+                                                    exo_prediction[0], exo_prediction[1])
+                    tempstr += ' {:.3f} {:.3f} {:.3f} {:.3f} {:.3f}'.format(exo_prediction[0], exo_prediction[1], exo_heading, 
+                                                self.agent_bb[exo_id][0], self.agent_bb[exo_id][1])
+                    curr_positions[exo_id] = carla.Vector2D(x=exo_prediction[0], y=exo_prediction[1])
+
+                print_safely(tempstr)
 
         ### -------- End logging -------- ###
 
@@ -782,9 +820,9 @@ class EgoVehicle(Summit):
                     -45.0, 45.0) / self.steer_angle_range,
                 -1.0, 1.0)
         
-        print("Round {} Executing action speed: {:.2f} steer: {:.2f}".format(self.round, self.gamma_cmd_speed, self.gamma_cmd_steer))
+        print_safely("Round {} Executing action speed: {:.2f} steer: {:.2f}".format(self.round, self.gamma_cmd_speed, self.gamma_cmd_steer))
         ee = time.time()
-        print("Time taken for Round {} GAMMA step: {:.2f}".format(self.round, ee - ss))
+        print_safely("Time taken for Round {} GAMMA step: {:.2f}".format(self.round, ee - ss))
 
     def update_crowd_range(self):
         # Cap frequency so that GAMMA loop doesn't die.
@@ -897,7 +935,7 @@ class EgoVehicle(Summit):
         try:
             self.car_info_pub.publish(car_info_msg)
         except Exception as e:
-            print(e)
+            print_safely(e)
 
     def publish_plan(self):
         if PRINT_LOG:
@@ -956,13 +994,13 @@ class EgoVehicle(Summit):
             last_loc = carla.Location(pos.x, pos.y, 0.1)
 
     def send_control_from_vel(self):
-        if PRINT_LOG:
-            print('{} [PHONG] Ego_vehicle.py send_control_from_vel() function'.format(output_time()))
+        #print('{} [PHONG] Ego_vehicle.py send_control_from_vel() function'.format(output_time()))
 
         control = self.actor.get_control()
         if self.control_mode == 'gamma':
             cmd_speed = min(self.gamma_cmd_speed, self.gamma_max_speed)
-            cmd_steer = self.gamma_cmd_steer
+            #cmd_steer = self.gamma_cmd_steer # I feel this steer is quite bad
+            cmd_steer = self.pp_cmd_steer
             kp, ki, kd, k, discount = 1.2, 0.5, 0.2, 0.8, 0.99
         else:
             cmd_speed = self.pomdp_cmd_speed
@@ -997,7 +1035,7 @@ class EgoVehicle(Summit):
             self.speed_control_last_update = None
             self.speed_control_integral = 0.0
             self.speed_control_last_error = 0.0
-            print('{} [PHONG] Ego_vehicle.py send_control_from_vel() function. throttle {}, steer {}'.format(
+            print_safely('{} [PHONG] Ego_vehicle.py send_control_from_vel() function. throttle {}, steer {}'.format(
                 output_time(), control.throttle, control.steer))
 
         else:
@@ -1019,7 +1057,8 @@ class EgoVehicle(Summit):
             speed_error = np.clip(speed_error, -6.0, 2.0)
             # if speed_error < 0:
             #     print('speed_error={}'.format(speed_error))
-            sys.stdout.flush()
+            #sys.stdout.flush()
+            flush_safely()
 
             # Scaling PID parameters because of slow frequency. Work at 300, 50 slower. Testing at 900 slower
             freq_ratio = EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ / ORIGINAL_EGO_VEHICLE_UPDATE_FREQUENCY_IN_HZ
@@ -1047,7 +1086,7 @@ class EgoVehicle(Summit):
                 control.brake = -speed_control
                 control.hand_brake = False
 
-            print('\n{} [PHONG] Ego_vehicle.py dt {}, speed_error {}, speed_control {} cmd_sp {} curr_sp {} cmd_st {} throttle {}, steer {}'.format(
+            print_safely('{} [PHONG] Ego_vehicle.py dt {}, speed_error {}, speed_control {} cmd_sp {} curr_sp {} cmd_st {} throttle {}, steer {}'.format(
             output_time(), dt, round(speed_error,2), round(speed_control,2),  
             round(cmd_speed, 2), round(cur_speed,2), round(cmd_steer, 2), round(control.throttle, 2), round(control.steer, 2)))
 
@@ -1122,14 +1161,14 @@ class EgoVehicle(Summit):
                                                                         self.path.interval)
                 new_path = NetworkAgentPath(self.sumo_network, self.path.min_points, self.path.interval)
                 new_path.route_points = self.rng.choice(new_path_candidates)[0:self.path.min_points]
-                print('NEW PATH!')
-                sys.stdout.flush()
+                print_safely('NEW PATH!')
+                #sys.stdout.flush()
+                flush_safely()
                 self.path = new_path
 
     def update(self):
         start = time.time()
-        if PRINT_LOG:
-            print('{} [PHONG] Ego_vehicle.py updated() function, speed.x {} speed.y {} with  control.th {}, control.st {}'.format(
+        print_safely('{} [PHONG] Ego_vehicle.py updated() even dead, speed.x {} speed.y {} with  control.th {}, control.st {}'.format(
                     output_time(), self.actor.get_velocity().x, self.actor.get_velocity().y, self.actor.get_control().throttle,
                     self.actor.get_control().steer))
 
@@ -1138,20 +1177,23 @@ class EgoVehicle(Summit):
 
 
         if not self.bounds_occupancy.contains(self.get_position()):
-            print("Termination: Vehicle exits map boundary")
+            print_safely("Termination: Vehicle exits map boundary")
             self.ego_dead_pub.publish(True)
+            self.ego_dead = True
             return
 
         # Publish info.
         if not self.path.resize():
-            print("Termination: No path available !!!")
+            print_safely("Termination: No path available !!!")
             self.ego_dead_pub.publish(True)
+            self.ego_dead = True
             return
         else:
             self.path.cut(self.get_position())
             if not self.path.resize():
-                print("Termination: Path extention failed !!!")
+                print_safely("Termination: Path extention failed !!!")
                 self.ego_dead_pub.publish(True)
+                self.ego_dead = True
                 return
 
         self.update_gamma_lane_decision()

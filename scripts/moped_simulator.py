@@ -34,6 +34,6 @@ class MopedSimulatorAccessories(Process):
 
         cmd = [moped_pyro4_server_script, "--host", self.args.host, "--mopedpyroport", str(self.args.moped_pyro_port)]
         
-        subprocess.run(cmd)
+        #subprocess.run(cmd)
 
 

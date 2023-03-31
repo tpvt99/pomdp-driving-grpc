@@ -26,7 +26,7 @@ logging.basicConfig(
 
 home = expanduser("~")
 #root_path = os.path.join(home, 'driving_data/lanegcn_005Hz_decentralized_1threads')
-root_path = os.path.join(home, 'driving_data/test/')
+root_path = os.path.join(home, 'driving_data/official/gamma_planner/lstmsocial')
 
 
 if not os.path.isdir(root_path):
@@ -388,7 +388,7 @@ def launch_pomdp_planner(round, run):
         launch_file = 'planner_debug.launch'
 
     # Adjusting .2f to .5f because at 0.1Hz, it becomes 0.000 if .2f
-    shell_cmd = 'roslaunch --wait crowd_pomdp_planner ' + \
+    shell_cmd = 'roslaunch crowd_pomdp_planner ' + \
                 launch_file + \
                 ' gpu_id:=' + str(config.gpu_id) + \
                 ' mode:=' + str(config.drive_mode) + \
@@ -563,7 +563,8 @@ if __name__ == '__main__':
 
             if "pomdp" in cmd_args.drive_mode or "rollout" in cmd_args.drive_mode:
                 pomdp_proc, pomdp_out = launch_pomdp_planner(round, run)
-            elif "gamma" in cmd_args.drive_mode:
+                
+            if "gamma" in cmd_args.drive_mode:
                 gamma_proc, gamma_out = launch_gamma_planner(round, run)
 
             print_flush("[run_data_collection.py] Finish data: sample_{}_{}".format(round, run))

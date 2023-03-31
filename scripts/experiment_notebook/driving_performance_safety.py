@@ -54,17 +54,19 @@ def find_collision_rate(ego_dict, exos_dict):
     collided_exo_ids = set()
 
     # Iterate through each time step in the episode
-    for time_step in range(total_time_steps):
-        ego_agent = ego_dict[time_step]
-        exo_agents = exos_dict[time_step]
+    for time_step in list(ego_dict.keys()):
+        # We are not sure time_step is in exos_dict so we check
+        if time_step in exos_dict.keys():
+            ego_agent = ego_dict[time_step]
+            exo_agents = exos_dict[time_step]
 
-        # Chck for collisions with exo cars at the current time step
-        for exo_agent in exo_agents:
-            if check_collision_by_considering_headings(ego_agent, exo_agent) and exo_agent['id'] not in collided_exo_ids:
-                collision_count += 1
-                collided_exo_ids.add(exo_agent['id'])
-                #print(f"Collision at time step {time_step} with exo car {exo_agent} and ego car {ego_agent}")
-                break
+            # Chck for collisions with exo cars at the current time step
+            for exo_agent in exo_agents:
+                if check_collision_by_considering_headings(ego_agent, exo_agent) and exo_agent['id'] not in collided_exo_ids:
+                    collision_count += 1
+                    collided_exo_ids.add(exo_agent['id'])
+                    #print(f"Collision at time step {time_step} with exo car {exo_agent} and ego car {ego_agent}")
+                    break
 
     # Calculate the collision rate
     collision_rate = collision_count / total_time_steps
@@ -93,17 +95,18 @@ def find_near_miss_rate(ego_dict, exos_dict):
     near_miss_threshold = 1.5
 
     # Iterate through each time step in the episode
-    for time_step in range(total_time_steps):
-        ego_agent = ego_dict[time_step]
-        exo_agents = exos_dict[time_step]
+    for time_step in list(ego_dict.keys()):
+        if time_step in exos_dict.keys():
+            ego_agent = ego_dict[time_step]
+            exo_agents = exos_dict[time_step]
 
-        # Chck for collisions with exo cars at the current time step
-        for exo_agent in exo_agents:
-            if check_near_miss(ego_agent, exo_agent, near_miss_threshold) and exo_agent['id'] not in collided_exo_ids:
-                near_miss_count += 1
-                collided_exo_ids.add(exo_agent['id'])
-                #print(f"Miss-collide at time step {time_step} with exo car {exo_agent} and ego car {ego_agent}")
-                break
+            # Chck for collisions with exo cars at the current time step
+            for exo_agent in exo_agents:
+                if check_near_miss(ego_agent, exo_agent, near_miss_threshold) and exo_agent['id'] not in collided_exo_ids:
+                    near_miss_count += 1
+                    collided_exo_ids.add(exo_agent['id'])
+                    #print(f"Miss-collide at time step {time_step} with exo car {exo_agent} and ego car {ego_agent}")
+                    break
 
     # Calculate the collision rate
     near_miss_rate = near_miss_count / total_time_steps
@@ -146,21 +149,22 @@ def find_ttc(ego_dict, exos_dict):
     mean_min_ttc = 0
 
     # Iterate through each time step in the episode
-    for time_step in range(total_time_steps):
-        ego_agent = ego_dict[time_step]
-        exo_agents = exos_dict[time_step]
+    for time_step in list(ego_dict.keys()):
+        if time_step in exos_dict.keys():
+            ego_agent = ego_dict[time_step]
+            exo_agents = exos_dict[time_step]
 
-        min_ttc = np.inf
-        # Chck for collisions with exo cars at the current time step
-        for exo_agent in exo_agents:
-            # We only calculate the TTC if the two agents are not colliding
-            if not check_collision_by_considering_headings(ego_agent, exo_agent):                    
-                ttc = time_to_collision(ego_agent, exo_agent)
-                min_ttc = min(min_ttc, ttc)
+            min_ttc = np.inf
+            # Chck for collisions with exo cars at the current time step
+            for exo_agent in exo_agents:
+                # We only calculate the TTC if the two agents are not colliding
+                if not check_collision_by_considering_headings(ego_agent, exo_agent):                    
+                    ttc = time_to_collision(ego_agent, exo_agent)
+                    min_ttc = min(min_ttc, ttc)
 
-        true_min_ttc = min(true_min_ttc, min_ttc)
-        if min_ttc != np.inf:
-            mean_min_ttc += min_ttc
+            true_min_ttc = min(true_min_ttc, min_ttc)
+            if min_ttc != np.inf:
+                mean_min_ttc += min_ttc
     
     mean_min_ttc /= total_time_steps
 

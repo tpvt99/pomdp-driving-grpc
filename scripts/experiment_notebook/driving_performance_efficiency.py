@@ -14,27 +14,29 @@ import numpy as np
 def distance_traveled(ego_list):
     total_distance = 0
 
-    for timestep in range(len(ego_list) - 1):
-        ego_position = np.array(ego_list[timestep]['pos'])
-        next_ego_position = np.array(ego_list[timestep + 1]['pos'])
-        total_distance += np.linalg.norm(next_ego_position - ego_position)
+    for timestep in list(ego_list.keys()):
+        if (timestep+1) in ego_list.keys():
+            ego_position = np.array(ego_list[timestep]['pos'])
+            next_ego_position = np.array(ego_list[timestep + 1]['pos'])
+            total_distance += np.linalg.norm(next_ego_position - ego_position)
 
     return total_distance
 
 def actual_travel_time(ego_list):
     total_time = 0
 
-    for timestep in range(len(ego_list) - 1):
-        pos1 = np.array(ego_list[timestep]['pos'])
-        pos2 = np.array(ego_list[timestep + 1]['pos'])
-        speed = ego_list[timestep]['speed']
-        if speed > 1e-3:
-            distance = np.linalg.norm(pos2 - pos1)
-            time = distance / speed
-            if time > 100:
-                print(f"Something is wrong with the time calculation d {distance} s {speed}")
-                continue # Do not add this time to the total
-            total_time += time
+    for timestep in list(ego_list.keys()):
+        if (timestep+1) in ego_list.keys():
+            pos1 = np.array(ego_list[timestep]['pos'])
+            pos2 = np.array(ego_list[timestep + 1]['pos'])
+            speed = ego_list[timestep]['speed']
+            if speed > 1e-3:
+                distance = np.linalg.norm(pos2 - pos1)
+                time = distance / speed
+                if time > 100:
+                    print(f"Something is wrong with the time calculation d {distance} s {speed}")
+                    continue # Do not add this time to the total
+                total_time += time
 
     return total_time
 
@@ -54,28 +56,29 @@ def closest_path_index(ego_pos, path):
 def expected_travel_time(ego_list, path, desired_speed):
     total_time = 0
 
-    for timestep in range(len(ego_list) - 1):
-        ego_pos = ego_list[timestep]['pos']
-        next_ego_pos = ego_list[timestep + 1]['pos']
+    for timestep in list(ego_list.keys()):
+        if (timestep+1) in ego_list.keys():
+            ego_pos = ego_list[timestep]['pos']
+            next_ego_pos = ego_list[timestep + 1]['pos']
 
-        if timestep in path:
-            path_at_timestep = path[timestep]
+            if timestep in path:
+                path_at_timestep = path[timestep]
 
-            # Find the closest path index for the current and next ego positions
-            closest_index = closest_path_index(ego_pos, path_at_timestep)
-            next_closest_index = closest_path_index(next_ego_pos, path_at_timestep)
+                # Find the closest path index for the current and next ego positions
+                closest_index = closest_path_index(ego_pos, path_at_timestep)
+                next_closest_index = closest_path_index(next_ego_pos, path_at_timestep)
 
-            # Calculate the distance between the closest points in the path
-            if next_closest_index > closest_index:
-                distance = 0
-                for i in range(closest_index, next_closest_index):
-                    pos1 = np.array(path_at_timestep[i])
-                    pos2 = np.array(path_at_timestep[i + 1])
-                    distance += np.linalg.norm(pos2 - pos1)
+                # Calculate the distance between the closest points in the path
+                if next_closest_index > closest_index:
+                    distance = 0
+                    for i in range(closest_index, next_closest_index):
+                        pos1 = np.array(path_at_timestep[i])
+                        pos2 = np.array(path_at_timestep[i + 1])
+                        distance += np.linalg.norm(pos2 - pos1)
 
-                # Calculate the time based on the distance and desired_speed
-                time = distance / desired_speed
-                total_time += time
+                    # Calculate the time based on the distance and desired_speed
+                    time = distance / desired_speed
+                    total_time += time
 
     return total_time
 
@@ -97,7 +100,7 @@ def efficiency_time_traveled(ego_list, path, desired_speed=6.0):
 
 # The higher the better
 def average_speed(ego_list):
-    speeds = [ego_data['speed'] for timestep, ego_data in ego_list.items() if timestep < len(ego_list) - 1]
+    speeds = [ego_data['speed'] for timestep, ego_data in ego_list.items()]
     return np.mean(speeds)
 
 
@@ -108,7 +111,7 @@ def average_speed(ego_list):
 def path_tracking_error(ego_list, path):
     error = []
 
-    for timestep in range(len(ego_list) - 1):
+    for timestep in list(ego_list.keys()):
         ego_position = np.array(ego_list[timestep]['pos'])
 
         if timestep in path:

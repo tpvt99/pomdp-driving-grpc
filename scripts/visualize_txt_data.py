@@ -4,6 +4,8 @@ import argparse
 import numpy as np
 import math, pdb
 
+import matplotlib
+
 import matplotlib.pyplot as plt
 from matplotlib import patches as mpatches
 from matplotlib import animation
@@ -346,7 +348,9 @@ if __name__ == "__main__":
                                frames=len(ego_list.keys()) - config.frame, interval=300, blit=True)
     #fig.canvas.mpl_connect('button_press_event', onClick)
 
-    plt.show()
+    anim.save('temp.gif', dpi=300, writer=PillowWriter(fps=25))
+
+    #plt.show()
 
 
 

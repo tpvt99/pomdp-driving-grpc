@@ -1,5 +1,5 @@
 import time
-
+import numpy as np
 
 class AgentType:
     car = 0 # Car
@@ -59,8 +59,21 @@ class History():
         '''
         Build request for MOPED
         '''
+
+        # Purge history if the agent is stuck for a long time
+        current_time = time.time()
+        for agent_id, last_update in self.last_exo_update.items():
+            if (current_time - last_update) > self.time_threshold:
+                self.exo_history.pop(agent_id, None)
+                self.last_exo_update.pop(agent_id, None)
+
         request = {}
         for agent_id, history in self.exo_history.items():
+            # For the sake of LaneGCN, we consider moving cars only, static one will be ignored
+            # I believe this one should be commented out, as it will not fair for other methods
+            # when other methods are able to use the static cars
+            if np.sum(np.abs(np.diff(np.array(history), axis=0))) < 1e-8:
+                continue
             request[agent_id] = {'agent_id': agent_id, 'agent_type': AgentType.car, 'agent_history': history, 'is_ego': False}
 
         request[self.ego_id] = {'agent_id': self.ego_id, 'agent_type': AgentType.car, 'agent_history': self.ego_history, 'is_ego': True}
