@@ -356,10 +356,16 @@ class EgoVehicle(Summit):
         self.publish_odom_transform()
         self.transformer = TransformListener()
 
-        self.agent_history = History(max_observations = 20, time_interval = 0.3, time_threshold = 5.0)
         time_scale = rospy.get_param('~time_scale', '1.0')
         self.time_per_move = (1.0 / CONTROL_FREQ) * 0.9 / time_scale
-        rospy.Timer(rospy.Duration(self.time_per_move), self.update_gamma_control)
+        self.agent_history = History(max_observations = 20, time_interval = self.time_per_move, time_threshold = self.time_per_move*20)
+        print_safely("Time per move: {} and threshold {}".format(self.time_per_move, self.time_per_move*20))
+        self.gamma_lock = threading.Lock()
+        self.gamma_thread = threading.Thread(target=self.update_gamma_control_sync)
+        self.gamma_thread.daemon = True
+        self.gamma_thread.start()
+        
+        #rospy.Timer(rospy.Duration(self.time_per_move), self.update_gamma_control)
         self.car_max_speed = 4.0 # Number got from summit_accessories
         self.bike_max_speed = 2.0 # Number got from summit_accessories
         self.pedestrain_max_speed = 1.0 # Number got from summit_accessories
@@ -369,6 +375,7 @@ class EgoVehicle(Summit):
         self.agent_bb = {}
         self.agent_history.set_ego_id(self.actor.id)
         self.ego_dead = False
+        self.beginning_time = time.time()
 
         # Draw in Carla
         #values = [get_position(self.path[i]) for i in range(len(self.path) - 1)]
@@ -576,7 +583,15 @@ class EgoVehicle(Summit):
 
         self.last_decision = lane_decision
 
-    def update_gamma_control(self, event=None):
+    def update_gamma_control_sync(self):
+        while True:
+            start = time.time()
+            with self.gamma_lock:
+                self.update_gamma_control()
+
+            time.sleep(max(0.0, self.time_per_move - (time.time() - start))) # 20 Hz
+
+    def update_gamma_control(self):
         if not self.agents_ready:
             print_safely('Agents not ready yet, skipping gamma control update {}'.format(output_time()))
             return
@@ -654,7 +669,7 @@ class EgoVehicle(Summit):
         
         # Step 2. Predict agent's future trajectory
         # dict[agent_id] = {agent_id': agent_id, 'agent_type': AgentType.car, 'agent_history': history, 'is_ego': False/True}
-        agent_observation = self.agent_history.build_request()
+        agent_observation, agent_time_for_printing = self.agent_history.build_request()
 
         # Prediction is a dictionary {'agent_id': int, 'agent_prediction': [(x1,y1), (x2,y2), ...], 'agent_prob': float}
         agent_prediction = self.moped_service.predict(agent_observation)
@@ -704,8 +719,15 @@ class EgoVehicle(Summit):
             ### A few loggings before printing prediction
             print_safely('Before prediction with agent observation:')
             for agent_id in agent_observation.keys():
-                print_safely('Before prediction history: agent {}: {}'.format(agent_id, agent_observation[agent_id]))
-                print_safely('Before prediction padded obs: agent {}: {}'.format(agent_id, agent_prediction['observation_array'][agent_id]))
+                str = "Before prediction history: agentID: {}, agentType: {} isEgo: {} ".format(agent_id, 
+                                                    agent_observation[agent_id]['agent_type'], agent_observation[agent_id]['is_ego'])
+                for time_index, obs in enumerate(agent_observation[agent_id]['agent_history']):
+                    str += "({:.3f}, {:.3f} | t= {:.3f}) ".format(obs[0], obs[1], agent_time_for_printing[agent_id]['agent_time'][time_index] - self.beginning_time)
+                #print_safely('Before prediction history: agent {}: {}'.format(agent_id, [(round(o[0],3), round(o[1],3)) for o in agent_observation[agent_id]]))
+                str += "\n"
+                str += 'Before prediction padded obs: agent {}: {}'.format(agent_id, 
+                                [(round(o[0],3), round(o[1],3)) for o in agent_prediction['observation_array'][agent_id]])
+                print_safely(str)
             ## End Logging
             
 

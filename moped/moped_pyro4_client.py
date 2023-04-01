@@ -26,6 +26,7 @@ def main():
 
     future_frames = agent_predictor.predict(agent_data)
 
+    print(f"Status: {future_frames['is_error']}")
     for agent_id, agent_data in future_frames.items():
         if type(agent_id) == int:
             print(f"Agent ID {agent_id}: {agent_data['agent_id']}  Agent prob: {agent_data['agent_prob']} Agent pred: {agent_data['agent_prediction']}")
