@@ -26,7 +26,7 @@ logging.basicConfig(
 
 home = expanduser("~")
 #root_path = os.path.join(home, 'driving_data/lanegcn_005Hz_decentralized_1threads')
-root_path = os.path.join(home, 'driving_data/official/gamma_planner/lstmsocial')
+root_path = os.path.join(home, 'driving_data/official/gamma_planner/knnsocial')
 
 
 if not os.path.isdir(root_path):

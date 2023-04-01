@@ -228,9 +228,13 @@ def calculate_heading(x1, y1, x2, y2):
     delta_x = x2 - x1
     delta_y = y2 - y1
     heading_radians = math.atan2(delta_y, delta_x)
+
+    # In DESPOT, yaw of ego is -pi to pi, but then yaw of exo is 0 to 2 * pi.
+    # So I decided not to change
     
     # Make sure the heading is within [0, 2 * pi]
-    heading_radians = heading_radians % (2 * math.pi)
+    #if heading_radians < 0:
+    #    heading_radians = heading_radians + 2 * math.pi
     
     return heading_radians
 
@@ -360,12 +364,14 @@ class EgoVehicle(Summit):
         self.time_per_move = (1.0 / CONTROL_FREQ) * 0.9 / time_scale
         self.agent_history = History(max_observations = 20, time_interval = self.time_per_move, time_threshold = self.time_per_move*20)
         print_safely("Time per move: {} and threshold {}".format(self.time_per_move, self.time_per_move*20))
-        self.gamma_lock = threading.Lock()
-        self.gamma_thread = threading.Thread(target=self.update_gamma_control_sync)
-        self.gamma_thread.daemon = True
-        self.gamma_thread.start()
+        self.last_add_observation_time = time.time()
+
+        # self.gamma_lock = threading.Lock()
+        # self.gamma_thread = threading.Thread(target=self.update_gamma_control_sync)
+        # self.gamma_thread.daemon = True
+        # self.gamma_thread.start()
         
-        #rospy.Timer(rospy.Duration(self.time_per_move), self.update_gamma_control)
+        rospy.Timer(rospy.Duration(self.time_per_move), self.update_gamma_control)
         self.car_max_speed = 4.0 # Number got from summit_accessories
         self.bike_max_speed = 2.0 # Number got from summit_accessories
         self.pedestrain_max_speed = 1.0 # Number got from summit_accessories
@@ -583,15 +589,15 @@ class EgoVehicle(Summit):
 
         self.last_decision = lane_decision
 
-    def update_gamma_control_sync(self):
-        while True:
-            start = time.time()
-            with self.gamma_lock:
-                self.update_gamma_control()
+    # def update_gamma_control_sync(self):
+    #     while True:
+    #         start = time.time()
+    #         with self.gamma_lock:
+    #             self.update_gamma_control()
 
-            time.sleep(max(0.0, self.time_per_move - (time.time() - start))) # 20 Hz
+    #         time.sleep(max(0.0, self.time_per_move - (time.time() - start))) # 20 Hz
 
-    def update_gamma_control(self):
+    def update_gamma_control(self, step = None):
         if not self.agents_ready:
             print_safely('Agents not ready yet, skipping gamma control update {}'.format(output_time()))
             return
@@ -620,8 +626,7 @@ class EgoVehicle(Summit):
 
         print_safely('car pos / heading / vel = ({:.5f}, {:.5f}) / {:.5f} / {:.5f} car dim {:.5f} {:.5f}'.format(
             self.actor.get_location().x, self.actor.get_location().y,
-            np.deg2rad(self.actor.get_transform().rotation.yaw), speed, 
-            self.bb_x, self.bb_y))
+            yaw, speed, self.bb_x, self.bb_y))
         
         # Finding number of exo
 
@@ -645,8 +650,6 @@ class EgoVehicle(Summit):
         exo_num = len(sorted_actors)
 
         print_safely('{} pedestrians'.format(exo_num))
-
-        
         
         # Log agent's intended path
         logging_temp_pos = [self.path.get_position(i) for i in range(len(self.path.route_points) - 1)]
@@ -655,7 +658,14 @@ class EgoVehicle(Summit):
 
 
         # Step 1. Add agent's observation into history
-        curr_positions = {} # for finding yaw in the logging 
+        curr_positions = {} # for finding yaw in the logging
+
+        # For the fact that the adding sometimes happen before time_per_move, but we must have conditions 
+        # of time_interval = time_per_move, we need to sleep for the remaining time
+        # At first I though Timer() would make equal time_per_move for each update gamma, but it seems not
+        time.sleep(max(0.0, self.time_per_move - (time.time() - self.last_add_observation_time)))
+        self.last_add_observation_time = time.time()
+        
         for (i, actor) in enumerate(sorted_actors + [self.actor]):
             pos = get_position(actor)
             pos_x, pos_y = pos.x, pos.y
@@ -689,8 +699,8 @@ class EgoVehicle(Summit):
                     continue
 
                 exo_id_in_orderd.append(actor.id)
-                vel = self.actor.get_velocity()
-                yaw = np.deg2rad(self.actor.get_transform().rotation.yaw)
+                vel = actor.get_velocity()
+                yaw = np.deg2rad(actor.get_transform().rotation.yaw)
                 v_2d = np.array([vel.x, vel.y, 0])
                 forward = np.array([math.cos(yaw), math.sin(yaw), 0])
                 speed = np.vdot(forward, v_2d)
@@ -711,13 +721,13 @@ class EgoVehicle(Summit):
                 print_safely('agent {}: id / pos / speed / vel / intention / dist2car / infront =  ' \
                     '{} / ({:.3f}, {:.3f}) / {:.3f} / ({:.3f}, {:.3f}) / path_0 / {:.3f} / {} (mode) att (type) {}' \
                     ' (bb) {:.3f} {:.3f} (cross) {} (heading) {:.3f}'.format(
-                index, actor.id, actor.get_location().x, actor.get_location().y, 
+                index, actor.id, curr_positions[actor.id].x, curr_positions[actor.id].y, 
                 speed, vel.x, vel.y, dist,
                 1, 0 if agent_type == "car" else 1, self.agent_bb[actor.id][0], self.agent_bb[actor.id][1], 0, yaw
                 ))
 
             ### A few loggings before printing prediction
-            print_safely('Before prediction with agent observation:')
+            print_safely('Before prediction using {} with agent observation:'.format(agent_prediction['moped_model']))
             for agent_id in agent_observation.keys():
                 str = "Before prediction history: agentID: {}, agentType: {} isEgo: {} ".format(agent_id, 
                                                     agent_observation[agent_id]['agent_type'], agent_observation[agent_id]['is_ego'])

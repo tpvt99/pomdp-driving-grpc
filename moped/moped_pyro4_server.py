@@ -1,4 +1,4 @@
-#!/home/phong/anaconda3/envs/lanegcn/bin/python
+#!/home/phong/anaconda3/envs/HiVT/bin/python
 
 import Pyro4
 import numpy as np  # Your motion prediction service module
@@ -139,7 +139,8 @@ class MotionPredictionService(object):
             # Adding 3 keys
             data_response['observation_array'] = padedd_observation_array
             data_response['is_error'] = is_error
-            #print(f'{find_value_types(data_response)}')
+            data_response['moped_model'] = self.planner.model_running
+            
         except:
             logger.info(f"Error in output data, predictions shape: {predictions.shape}, "
                         f"probs shape: {probs.shape}, agent_id_list: {agent_id_list} Inputs shape: {agents_history.shape}")
