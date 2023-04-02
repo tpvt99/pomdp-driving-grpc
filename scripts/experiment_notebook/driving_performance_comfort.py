@@ -32,7 +32,10 @@ def find_acceleration_and_jerk(ego_dict):
     jerk_data = calculate_jerk(accel_data, delta_time)
     lateral_accel_data = calculate_lateral_acceleration(speed_data, heading_data, delta_time)
 
-    mean_accel = np.mean(lateral_accel_data)
+    mean_lat_accel = np.mean(np.sqrt(lateral_accel_data**2))
+    mean_accel = np.mean(np.sqrt(np.sum(accel_data**2, axis=1)))
+    assert np.isclose(np.mean(np.sqrt(np.sum(accel_data**2, axis=1))), np.mean(np.linalg.norm(accel_data, axis=1)))
     mean_jerk = np.mean(jerk_data)
-    return mean_jerk, mean_accel
+
+    return mean_jerk, mean_lat_accel, mean_accel
 

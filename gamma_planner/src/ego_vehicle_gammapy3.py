@@ -732,8 +732,8 @@ class EgoVehicle(Summit):
                 str = "-----------\nBefore prediction history: agentID: {}, agentType: {} isEgo: {} ".format(agent_id, 
                                                     agent_observation[agent_id]['agent_type'], agent_observation[agent_id]['is_ego'])
                 for time_index, obs in enumerate(agent_observation[agent_id]['agent_history']):
-                    str += "({:.3f}, {:.3f} | t{}= {:.3f}) ".format(obs[0], obs[1], 
-                                    agent_time_for_printing[agent_id]['agent_time'][time_index] - self.beginning_time, time_index)
+                    str += "({:.3f}, {:.3f} | t{}= {:.3f}) ".format(obs[0], obs[1], time_index,
+                                    agent_time_for_printing[agent_id]['agent_time'][time_index] - self.beginning_time)
                 #print_safely('Before prediction history: agent {}: {}'.format(agent_id, [(round(o[0],3), round(o[1],3)) for o in agent_observation[agent_id]]))
                 str += "\n"
                 str += 'Before prediction padded obs: agent {}: {}'.format(agent_id, 

@@ -129,7 +129,7 @@ def time_to_collision(ego, exo):
 
     min_ttc = np.inf
 
-    for t in np.arange(0, 10, 0.1):  # Sample times from 0 to 10 seconds with 0.1-second increments
+    for t in np.arange(0, 1, 0.5):  # Sample times from 0 to 10 seconds with 0.1-second increments
         future_ego_corners = [np.array(corner) + t * ego_vel for corner in ego_corners]
         future_exo_corners = [np.array(corner) + t * exo_vel for corner in exo_corners]
 
