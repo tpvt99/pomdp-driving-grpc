@@ -125,31 +125,55 @@ class CrossEntropyMPC:
         optimal_action = mean[0]  # We only apply the first action in the sequence
         return optimal_action
 
-    # def _check_collision(self, bb1, bb2):
-    #     '''
-    #     Check if two bounding boxes are colliding.
+    def _check_collision(self, ego_state, exo_pos_at_t, exo_state_at_0):
+        def _rotated_rect_corners(center, width, length, angle):
+            half_width = width / 2
+            half_length = length / 2
+            corners = [
+                np.array([-half_width, -half_length]),
+                np.array([half_width, -half_length]),
+                np.array([half_width, half_length]),
+                np.array([-half_width, half_length])
+            ]
 
-    #     Parameters:
-    #     bb1 (np.array): The first bounding box, with shape (8,) containing flattened [top-left corner, top-right corner, bottom-right corner, bottom-left corner].
-    #                     Each corner is a 2D array with x, y coordinates.
-    #     bb2 (np.array): The second bounding box, with shape (8,) containing flattened [top-left corner, top-right corner, bottom-right corner, bottom-left corner].
-    #                     Each corner is a 2D array with x, y coordinates.
+            rotation_matrix = np.array([
+                [np.cos(angle), -np.sin(angle)],
+                [np.sin(angle), np.cos(angle)]
+            ])
 
-    #     Returns:
-    #     bool: True if the bounding boxes are colliding, False otherwise.
-    #     '''
-    #     bb1_corners = bb1.reshape(4, 2)
-    #     bb2_corners = bb2.reshape(4, 2)
+            return [center + rotation_matrix @ corner for corner in corners]
 
-    #     for corner in bb1_corners:
-    #         if np.min(bb2_corners[:, 0]) <= corner[0] <= np.max(bb2_corners[:, 0]) and np.min(bb2_corners[:, 1]) <= corner[1] <= np.max(bb2_corners[:, 1]):
-    #             return True
+        def _project(corners, axis):
+            projections = [np.dot(corner, axis) for corner in corners]
+            return min(projections), max(projections)
 
-    #     for corner in bb2_corners:
-    #         if np.min(bb1_corners[:, 0]) <= corner[0] <= np.max(bb1_corners[:, 0]) and np.min(bb1_corners[:, 1]) <= corner[1] <= np.max(bb1_corners[:, 1]):
-    #             return True
+        def _overlap(min1, max1, min2, max2):
+            return max1 >= min2 and max2 >= min1
 
-    #     return False
+        # Compute the yaw of the exogenous vehicle at time t based on its position
+        direction_vector = exo_pos_at_t - exo_state_at_0[:2]
+        exo_yaw_at_t = np.arctan2(direction_vector[1], direction_vector[0])
+
+        # Compute the corners for both rectangles
+        ego_corners = _rotated_rect_corners(ego_state[:2], ego_state[5], ego_state[6], ego_state[2])
+        exo_corners = _rotated_rect_corners(exo_pos_at_t, exo_state_at_0[5], exo_state_at_0[6], exo_yaw_at_t)
+
+        # Calculate the edges for both rectangles
+        ego_edges = [ego_corners[i] - ego_corners[i - 1] for i in range(len(ego_corners))]
+        exo_edges = [exo_corners[i] - exo_corners[i - 1] for i in range(len(exo_corners))]
+
+        # Check for overlap along each axis
+        for edge in ego_edges + exo_edges:
+            axis = np.array([-edge[1], edge[0]])
+            ego_min_proj, ego_max_proj = _project(ego_corners, axis)
+            exo_min_proj, exo_max_proj = _project(exo_corners, axis)
+
+            if not _overlap(ego_min_proj, ego_max_proj, exo_min_proj, exo_max_proj):
+                return False
+
+        # All axes have overlap, so the rectangles are colliding
+        return True
+
 
     def _get_bounding_box_corners(self, state):
         """
@@ -186,60 +210,34 @@ class CrossEntropyMPC:
         return corners
     
 
-    def _check_collision(self, ego_state_at_t, exo_pred_at_t, exo_state_at_0):
-        ego_bb = self._get_bounding_box_corners(ego_state_at_t)
-        
-        # Extract width and length of exo vehicle from exo state at time 0
-        exo_width = exo_state_at_0[5]
-        exo_length = exo_state_at_0[6]
-        
-        # Calculate the bounding box corners of the exo vehicle at time t using its prediction and dimensions
-        exo_loc_at_t = exo_pred_at_t
-        exo_yaw_at_t = exo_state_at_0[2]  # Assuming constant yaw
-        exo_forward_vec = np.array([np.cos(exo_yaw_at_t), np.sin(exo_yaw_at_t)])
-        exo_sideward_vec = np.array([np.sin(exo_yaw_at_t), -np.cos(exo_yaw_at_t)])
-        exo_half_x_len_forward = exo_length / 2.0
-        exo_half_x_len_backward = exo_length / 2.0
-        exo_half_y_len = exo_width / 2.0
-        exo_corners = [
-            exo_loc_at_t - exo_half_x_len_backward * exo_forward_vec + exo_half_y_len * exo_sideward_vec,
-            exo_loc_at_t + exo_half_x_len_forward * exo_forward_vec + exo_half_y_len * exo_sideward_vec,
-            exo_loc_at_t + exo_half_x_len_forward * exo_forward_vec - exo_half_y_len * exo_sideward_vec,
-            exo_loc_at_t - exo_half_x_len_backward * exo_forward_vec - exo_half_y_len * exo_sideward_vec
-        ]
-        
-        # Check collision between the two bounding boxes
-        for corner in ego_bb:
-            if np.min(exo_corners[:, 0]) <= corner[0] <= np.max(exo_corners[:, 0]) and np.min(exo_corners[:, 1]) <= corner[1] <= np.max(exo_corners[:, 1]):
-                return True
-        
-        return False
-
-
     # def _check_collision(self, ego_state_at_t, exo_pred_at_t, exo_state_at_0):
-    #     '''
-    #         Check if two bounding boxes are colliding.
-
-    #         Parameters:
-    #         ego_state_at_t (np.array): np.array([x, y, yaw, v.x, v.y, bb_width, bb_length])
-    #         exo_pred_at_t: np.array([x, y])
-    #         exo_state_at_0: np.array([x, y, yaw, v.x, v.y, bb_width, bb_length])
-
-    #         Returns:
-    #         bool: True if the bounding boxes are colliding, False otherwise.
-    #     '''
-    #     bb1_corners = bb1.reshape(4, 2)
-    #     bb2_corners = bb2.reshape(4, 2)
-
-    #     for corner in bb1_corners:
-    #         if np.min(bb2_corners[:, 0]) <= corner[0] <= np.max(bb2_corners[:, 0]) and np.min(bb2_corners[:, 1]) <= corner[1] <= np.max(bb2_corners[:, 1]):
+    #     ego_bb = self._get_bounding_box_corners(ego_state_at_t)
+        
+    #     # Extract width and length of exo vehicle from exo state at time 0
+    #     exo_width = exo_state_at_0[5]
+    #     exo_length = exo_state_at_0[6]
+        
+    #     # Calculate the bounding box corners of the exo vehicle at time t using its prediction and dimensions
+    #     exo_loc_at_t = exo_pred_at_t
+    #     exo_yaw_at_t = exo_state_at_0[2]  # Assuming constant yaw
+    #     exo_forward_vec = np.array([np.cos(exo_yaw_at_t), np.sin(exo_yaw_at_t)])
+    #     exo_sideward_vec = np.array([np.sin(exo_yaw_at_t), -np.cos(exo_yaw_at_t)])
+    #     exo_half_x_len_forward = exo_length / 2.0
+    #     exo_half_x_len_backward = exo_length / 2.0
+    #     exo_half_y_len = exo_width / 2.0
+    #     exo_corners = [
+    #         exo_loc_at_t - exo_half_x_len_backward * exo_forward_vec + exo_half_y_len * exo_sideward_vec,
+    #         exo_loc_at_t + exo_half_x_len_forward * exo_forward_vec + exo_half_y_len * exo_sideward_vec,
+    #         exo_loc_at_t + exo_half_x_len_forward * exo_forward_vec - exo_half_y_len * exo_sideward_vec,
+    #         exo_loc_at_t - exo_half_x_len_backward * exo_forward_vec - exo_half_y_len * exo_sideward_vec
+    #     ]
+        
+    #     # Check collision between the two bounding boxes
+    #     for corner in ego_bb:
+    #         if np.min(exo_corners[:, 0]) <= corner[0] <= np.max(exo_corners[:, 0]) and np.min(exo_corners[:, 1]) <= corner[1] <= np.max(exo_corners[:, 1]):
     #             return True
-
-    #     for corner in bb2_corners:
-    #         if np.min(bb1_corners[:, 0]) <= corner[0] <= np.max(bb1_corners[:, 0]) and np.min(bb1_corners[:, 1]) <= corner[1] <= np.max(bb1_corners[:, 1]):
-    #             return True
-
-        return False
+        
+    #     return False
 
     
     def _cost(self, next_state, action, desired_trajectory, exo_states, exo_predictions, current_t):
@@ -323,7 +321,7 @@ class CrossEntropyMPC:
 
 
 
-client = carla.Client('localhost', 4599)
+client = carla.Client('localhost', 15452)
 client.set_timeout(2.0)
 world = client.get_world()
 
