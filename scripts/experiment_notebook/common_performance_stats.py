@@ -7,6 +7,11 @@ import math
 import matplotlib as mpl
 import matplotlib.lines as mlines
 
+from driving_performance_safety import find_collision_rate, find_near_miss_rate, find_ttc
+from driving_performance_comfort import find_acceleration_and_jerk
+from driving_performance_efficiency import efficiency_time_traveled, average_speed, path_tracking_error, distance_traveled
+from temporal_consistency_calculation import calculate_consistency
+from prediction_performance import ade_fde
 cap = 20
 
 # The function file all text in a folder and its subfolders
@@ -77,6 +82,7 @@ def parse_data(txt_file):
 
     exo_count = 0
     start_recording = False
+    start_recording_prediction = False
 
     with open(txt_file, 'r') as f:
         for line in f:
@@ -84,6 +90,7 @@ def parse_data(txt_file):
                 line_split = line.split('Round 0 Step ', 1)[1]
                 cur_step = int(line_split.split('-', 1)[0])
                 start_recording = True
+                start_recording_prediction = True
             if not start_recording:
                 continue
             try:
@@ -139,7 +146,7 @@ def parse_data(txt_file):
                         y = float(line_split[i + 1])
                         path.append([x, y])
                     ego_path_list[cur_step] = path
-                elif 'predicted_car_' in line:
+                elif 'predicted_car_' in line and start_recording_prediction:
                     # predicted_car_0 378.632 470.888 5.541
                     # (x, y, heading in rad)
                     line_split = line.split(' ')
@@ -155,7 +162,7 @@ def parse_data(txt_file):
                         pred_car_list[cur_step] = []
                     pred_car_list[cur_step].append(agent_dict)
 
-                elif 'predicted_agents_' in line:
+                elif 'predicted_agents_' in line and start_recording_prediction:
                     # predicted_agents_0 380.443 474.335 5.5686 0.383117 1.1751
                     # [(x, y, heading, bb_x, bb_y)]
                     line_split = line.split(' ')
@@ -203,7 +210,7 @@ def parse_data(txt_file):
                 if "[PredictAgents] Reach terminal state" in line: # if this is despot
                     pred_car_list.pop(cur_step, None)
                     pred_exo_list.pop(cur_step, None)
-                    start_recording = False
+                    start_recording_prediction = False
 
                 if "Prediction status:" in line: # If this is gamma
                     if "Success" not in line:
@@ -211,10 +218,13 @@ def parse_data(txt_file):
                 if "Time taken" in line and "GAMMA" in line:
                     gamma_prediction_time.append(float(line.split(':')[-1]))
 
+                if "Error in prediction" in line: # if this is gamma
+                    assert False, "This file is in gamma prediction and it fail in prediction"
+
             except Exception as e:
                 error_handler(e)
-                #assert False
-                pdb.set_trace()
+                assert False
+                #pdb.set_trace()
 
     return action_list, ego_list, ego_path_list, exos_list, coll_bool_list, \
         pred_car_list, pred_exo_list, trial_list, depth_list, expanded_nodes, total_nodes, gamma_prediction_time
@@ -225,123 +235,145 @@ def error_handler(e):
         'Error on file {} line {}'.format(sys.exc_info()[-1].tb_frame.f_code.co_filename, sys.exc_info()[-1].tb_lineno),
         type(e).__name__, e)
     
-def displacement_error(pred, gt):
-    return np.linalg.norm(np.array(pred) - np.array(gt))
+def get_recorded_data(ABSOLUTE_DIR):
+    '''
+        Get all recorded data from ABSOLUTE_DIR
+        The recorded data can be used in the below get_prediction_and_driving_performance
+    '''
+    # The key of recorded data is on a path file.
+    recorded_data = {}
+    for root, subdirs, files in os.walk(ABSOLUTE_DIR):
+        if len(files) > 0:
+            for file in files:
+                if file.endswith('.txt'):
+                    file_path = os.path.join(root, file)
+                    print(f"Processing {file_path}")
+                    try:
+                        action_list, ego_list, ego_path_list, exos_list, coll_bool_list, \
+                        pred_car_list, pred_exo_list, trial_list, depth_list, expanded_nodes, total_nodes, gamma_time = parse_data(file_path)
+                        
+                        recorded_data[file_path] = [action_list, ego_list, ego_path_list, exos_list, coll_bool_list, \
+                                pred_car_list, pred_exo_list, trial_list, depth_list, expanded_nodes, total_nodes, gamma_time]
+                        print("Done no error for above file")
+                    except Exception as e:
+                        print(f"Exception {e}")
+                        continue
 
-def ade_fde(pred_car_list, pred_exo_list, ego_list, exos_list):
-    ego_ade = []
-    ego_fde = []
-    ego_obs_list = {} # exo observation
+                #break # uncommented to run real
 
-    # Calculate ADE and FDE for ego agent
-    for i, timestep in enumerate(pred_car_list):
+    return recorded_data
 
-        # Skip the first 20 timesteps because the prediction is not accurate
-        if timestep < 30:
+def get_prediction_and_driving_performance(method_name, max_files_per_method=30, recorded_data_map = None):
+    #ABSOLUTE_DIR = '/home/phong/driving_data/official/same_computation/lstmdefault_1Hz/'
+    '''
+        Recorded data map, key is method, value is another dict, whose key is file, and values is recorded data
+    '''
+
+    prediction_performance = {
+        'ade': [],
+        'fde': [],
+        'temporal_consistency' : [], 
+        'distribution': [], # variance of distribution is prediction performance
+        'variance': []
+    }
+    driving_performance = {
+        'safety': {
+            'collision_rate': [],
+            'near_miss_rate': [],
+            'mean_min_ttc': [],
+        },
+        'comfort': {
+            'jerk': [],
+            'lateral_acceleration': [],
+            'acceleration': []
+        },
+        'efficiency': {
+            'avg_speed': [],
+            'tracking_error': [],
+            'efficiency_time': [],
+            'distance_traveled': [],
+        },
+    }
+    tree_performance = {
+        'expanded_nodes': [],
+        'total_nodes': [],
+        'trial': [],
+        'depth': [],
+        'gamma_time': [] # available only for gamma
+    }
+
+    if recorded_data is None:
+        recorded_data = {}
+
+    number_of_files_to_process = max_files_per_method
+
+    for file_path in recorded_data_map[method_name].keys():
+        action_list, ego_list, ego_path_list, exos_list, coll_bool_list, \
+            pred_car_list, pred_exo_list, trial_list, depth_list, expanded_nodes, total_nodes, gamma_time = recorded_data[file_path]
+
+        # The number of steps are too small which can affect ADE/FDE, thus we ignore these files
+        if len(ego_list) <= 20:
+            print(f'Length of step is less than 20. Skip this record {file_path}')
             continue
 
-        errors = []
-        num_pred = len(pred_car_list[timestep])
-        ego_obs_list[timestep] = []
-        
-        for j in range(num_pred):
-            if (timestep + j+1) in ego_list.keys():
-                ego_pred = pred_car_list[timestep][j]['pos']
-                ego_gt_next = ego_list[timestep+j+1]['pos'] # +1 because the prediction is for the next timestep
-                error = displacement_error(ego_pred, ego_gt_next)
-                errors.append(error)
-                if j < 20 and (timestep +j - 20) in ego_list.keys():
-                    ego_obs_list[timestep].append(ego_list[timestep + j - 20]['pos'])
-        if len(errors) > 0:
-            ego_ade.append(np.mean(errors))
-            ego_fde.append(errors[-1])
+        # Tree performance
+        tree_performance['expanded_nodes'].append(list(expanded_nodes.values()))
+        tree_performance['total_nodes'].append(list(total_nodes.values()))
+        tree_performance['trial'].append(list(trial_list.values()))
+        tree_performance['depth'].append(list(depth_list.values()))
+        tree_performance['gamma_time'].append(gamma_time)
 
-
-    # Calculate ADE and FDE for each exo agent
-    exo_ade = {}
-    exo_fde = {}
-
-    distributions = []
-
-    for timestep in list(exos_list.keys()):
-
-        # Skip the first 20 timesteps because the prediction is not accurate
-        if timestep < 30:
-            continue
-
-        for agent_index, exo_agent in enumerate(exos_list[timestep]):
-
-            # if agent_index != 0:
-            #     continue
-
-            agent_info = exo_agent
-            agent_id = agent_info['id']
-
-            if timestep not in pred_exo_list.keys():
+        # Prediction performance
+        try:
+            ego_ade, ego_fde, exo_ade, exo_fde, ade_distribution = ade_fde(pred_car_list, pred_exo_list, ego_list, exos_list)
+            if exo_ade is None:
                 continue
+        except Exception as e:
+            print(e)
+            continue
+        
+        if number_of_files_to_process == 0:
+            break
+        number_of_files_to_process -= 1
 
-            num_pred = len(pred_exo_list[timestep])
-            exo_pred_at_timestep = pred_exo_list[timestep] # A list of 30 predictions. Each prediction is a list of agents
-            
-            exo_pred_list = [] # exo prediction
-            exo_ggt_list = [] # exo ground truth
-            exo_obs_list = [] # exo observation
-            errors = []
-            
-            for j in range(num_pred):
-                if (timestep + j+1) not in exos_list.keys():
-                    break
-                all_agent_ids_at_next_timestep = [agent['id'] for agent in exos_list[timestep+j+1]]
-                all_agent_ids_at_prev_20_timestep = [agent['id'] for agent in exos_list[timestep+j-20]]
-                
-                # If agent is not in the next timestep, then there is no point in calculating the error
-                if agent_id not in all_agent_ids_at_next_timestep:
-                    break
-                
-                # If agent not in prev 20 timestep, then it not have enough history to calculate the error
-                if agent_id not in all_agent_ids_at_prev_20_timestep:
-                    break
-                
-                if j < 20:
-                    exo_obs_list.append(exos_list[timestep+j-20][all_agent_ids_at_prev_20_timestep.index(agent_id)]['pos'])
+        tmp_consistency = calculate_consistency(exos_list, pred_exo_list)
+        prediction_performance['ade'].append(exo_ade)
+        prediction_performance['fde'].append(exo_fde)
+        prediction_performance['temporal_consistency'].append(tmp_consistency)
+        prediction_performance['distribution'].append(ade_distribution)
+        prediction_performance['variance'].append(np.var(ade_distribution))
+        
+        print(f"ADE {exo_ade:.2f}, FDE {exo_fde:.2f} temp_cont {tmp_consistency:.2f} var: {np.var(ade_distribution):.2f}", end=" ")
+        
+        # Driving performance - safety
+        collision_rate = find_collision_rate(ego_list, exos_list)
+        near_miss_rate = find_near_miss_rate(ego_list, exos_list)
+        true_min_ttc, mean_min_ttc = find_ttc(ego_list, exos_list)
+        driving_performance['safety']['collision_rate'].append(collision_rate)
+        driving_performance['safety']['near_miss_rate'].append(near_miss_rate)
+        driving_performance['safety']['mean_min_ttc'].append(mean_min_ttc)
 
-                if agent_id in all_agent_ids_at_next_timestep:
-                    agent_index_at_next_timestep = all_agent_ids_at_next_timestep.index(agent_id)
-                    exo_pred = exo_pred_at_timestep[j][agent_index]['pos']
-                    exo_gt_next = exos_list[timestep+j+1][agent_index_at_next_timestep]['pos']
-                    exo_pred_list.append(exo_pred)
-                    exo_ggt_list.append(exo_gt_next)
-                    error = displacement_error(exo_pred, exo_gt_next)
-                    errors.append(error)
-            
-            #if len(xxx) >= 10 and (np.abs(np.diff(np.array(xxx), axis=0)).sum() <= 0.1 or np.abs(np.diff(np.array(ooo), axis=0)).sum()) <= 0.1:
-            #    assert False, f"xxx is {xxx}, agent_id is {agent_id} at timestep {timestep}"
-            #if np.abs(np.diff(np.array(exo_obs_list), axis=0)).sum() <= 0.5:
-            #     #assert False, f"error is {errors}, agent_id is {agent_id} at timestep {timestep} \n xxx is {xxx} \n ggt is {ggt} \n {ooo}"
-                #print(f"agent id {agent_id} ggt: {exo_ggt_list} \n pred: {exo_pred_list} \n obs: {exo_obs_list}")
-            #    continue
-            #print(f"Error is {np.mean(errors)} at timestep {timestep} for agent {agent_id}")
-            #if np.mean(errors) > 15:
-            #    print(f"time {timestep} agent id {agent_id} ggt: {exo_ggt_list} \n pred: {exo_pred_list} \n obs: {exo_obs_list}")
-            #    print(f"Error is {np.mean(errors)} at timestep {timestep} for agent {agent_id}")
-            #    assert np.isclose(np.mean(np.linalg.norm(np.array(exo_pred_list) - np.array(exo_ggt_list), axis=1)), np.mean(errors))
-            #    assert False, f"agent id {agent_id} at timestep {timestep} \n ego: {ego_obs_list[timestep]} \n ggt: {exo_ggt_list} \n pred: {exo_pred_list} \n obs: {exo_obs_list}"
-            
-            if len(errors) > 0:
-                if agent_id not in exo_ade:
-                    exo_ade[agent_id] = []
-                    exo_fde[agent_id] = []
-                exo_ade[agent_id].append(np.mean(errors))
-                exo_fde[agent_id].append(errors[-1])
+        print(f"coll-rate {collision_rate:.2f}, miss-rate {near_miss_rate:.2f} ttc {mean_min_ttc:.2f}", end=" ")
 
-                distributions.append(float(np.mean(errors)))
+        # Driving performance - comfort
+        jerk, lateral_acceleration, acceleration = find_acceleration_and_jerk(ego_list)
+        driving_performance['comfort']['jerk'].append(jerk)
+        driving_performance['comfort']['lateral_acceleration'].append(lateral_acceleration)
+        driving_performance['comfort']['acceleration'].append(acceleration)
 
-    if len(exo_ade) == 0:
-        return None, None, None, None, None
+        print(f"jerk {jerk:.2f}, lat-acc {lateral_acceleration:.2f}", end=" ")
 
-    # Calculate average ADE for each exo agent
-    # We average all time steps for each agent. Then we average all agents.
-    exo_ade = np.mean([np.mean(exo_ade[agent_id]) for agent_id in exo_ade.keys()])
-    exo_fde = np.mean([np.mean(exo_fde[agent_id]) for agent_id in exo_fde.keys()])
+        # Driving performance - efficiency
+        avg_speed = average_speed(ego_list)
+        tracking_error = path_tracking_error(ego_list, ego_path_list)
+        efficiency_time = efficiency_time_traveled(ego_list, ego_path_list)
+        distance_travel = distance_traveled(ego_list)
+        driving_performance['efficiency']['avg_speed'].append(avg_speed)
+        driving_performance['efficiency']['tracking_error'].append(tracking_error)
+        driving_performance['efficiency']['efficiency_time'].append(efficiency_time)
+        driving_performance['efficiency']['distance_traveled'].append(distance_travel)
 
-    return np.mean(ego_ade), np.mean(ego_fde), exo_ade, exo_fde, distributions
+        print(f"avg_speed {avg_speed:.2f}, track-err {tracking_error:.2f} eff-time {efficiency_time:.2f}", end=" ")
+    
+
+    return prediction_performance, driving_performance, tree_performance

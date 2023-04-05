@@ -636,7 +636,12 @@ class EgoVehicle(Summit):
             if actor is None:
                 continue
             
+            # Only agents with concrete class
             if not (isinstance(actor, carla.Vehicle) or isinstance(actor, carla.Walker)):
+                continue
+
+            # only agents within 100 meters
+            if (get_position(self.actor) - get_position(actor)).length() > 100:
                 continue
 
             if actor.id != self.actor.id:
@@ -688,7 +693,6 @@ class EgoVehicle(Summit):
             # If any errors, we just do not print predictions. However we still continue to control the agent
             print_safely('Error in prediction')
         else:
-            
             # If prediction succeeds, we start to print agent current position
             # We do this becaus we print sequence of agent's without id and print prediction without id also
             # That's why we need to wait after prediction to print agent's current position
@@ -745,7 +749,8 @@ class EgoVehicle(Summit):
             
 
             ### -------- Logging agent's prediction -------- ###
-            print_safely('Prediction status: {}'.format('Error' if agent_prediction['is_error'] else 'Success'))
+            print_safely('Prediction status: {}, is_error: {}'.format('Error' if agent_prediction['is_error'] else 'Success', 
+                                                        agent_prediction['is_error']))
             
             for future_frame in range(len(agent_prediction[self.actor.id]['agent_prediction'])):
                 ego_prediction = agent_prediction[self.actor.id]['agent_prediction'][future_frame]
@@ -773,7 +778,7 @@ class EgoVehicle(Summit):
             if actor.id == self.actor.id:
                 continue
 
-            if (get_position(self.actor) - get_position(actor)).length() > 20:
+            if (get_position(self.actor) - get_position(actor)).length() > 30:
                 continue
 
             if isinstance(actor, carla.Vehicle):
@@ -797,19 +802,38 @@ class EgoVehicle(Summit):
             ## Set preferred velocity and path based on MOPED prediction of next 10 steps
             if actor.id in agent_prediction: # The most near 20 agents are predicted
                 predictions = agent_prediction[actor.id]['agent_prediction']
-                target_predicted_xy = predictions[min(MOPED_FUTURE_PREDICTION_LENGTH-1, len(predictions)-1)]
+                temp_str = ""
+                # Velocity is next 3 prediction
+                look_ahead_steps_for_vel = min(3-1, len(predictions)-1)
+                target_predicted_xy = predictions[look_ahead_steps_for_vel]
                 target_predicted_vector = carla.Vector2D(target_predicted_xy[0], target_predicted_xy[1])
                 pref_vel = target_predicted_vector - get_position(actor)
-                if type_tag == 'Bicycle':
-                    pref_vel = pref_vel.make_unit_vector() * self.bicycle_max_speed
-                elif type_tag == 'Car':
-                    pref_vel = pref_vel.make_unit_vector() * self.car_max_speed
-                else:
-                    pref_vel = pref_vel.make_unit_vector() * self.pedestrain_max_speed
 
+                # Method 1 to find pref: using max speed
+                # if type_tag == 'Bicycle':
+                #     pref_vel = pref_vel.make_unit_vector() * self.bicycle_max_speed
+                # elif type_tag == 'Car':
+                #     pref_vel = pref_vel.make_unit_vector() * self.car_max_speed
+                # else:
+                #     pref_vel = pref_vel.make_unit_vector() * self.pedestrain_max_speed
+                # Method 2 to find pref: using delta t
+                hihi_str = "Pref before: {:.3f} {:.3f} {:.3f}".format(pref_vel.x, pref_vel.y, pref_vel.length())
+                delta_t = 0.3 # We assume each prediction is distanced by 0.3 seconds
+                pref_vel = pref_vel / (delta_t * (look_ahead_steps_for_vel+1))
+                hihi_str += " after: {:.3f} {:.3f} {:.3f}".format(pref_vel.x, pref_vel.y, pref_vel.length())
+
+                temp_str += "Agent {} type {} using {} pred x: {:.3f} y: {:.3f} to find pref_vel {:.3f}".format(actor.id, type_tag,
+                                    look_ahead_steps_for_vel+1, target_predicted_xy[0], target_predicted_xy[1], pref_vel.length())
                 gamma.set_agent_pref_velocity(gamma_id, pref_vel)
+                
+                # Path is next 1 predictions
+                target_predicted_xy = predictions[min(1-1, len(predictions)-1)]
+                target_predicted_vector = carla.Vector2D(target_predicted_xy[0], target_predicted_xy[1])
                 path_forward = (target_predicted_vector - get_position(actor)).make_unit_vector()
                 gamma.set_agent_path_forward(gamma_id, path_forward)
+                temp_str += " and 1 pred x: {:.3f} y: {:.3f} to find path".format(target_predicted_xy[0], target_predicted_xy[1])
+                print_safely(temp_str)
+                print_safely(hihi_str)
             else: # The farer is not predicted
                 gamma.set_agent_pref_velocity(gamma_id, get_velocity(actor))
             

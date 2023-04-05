@@ -38,33 +38,37 @@ def calculate_consistency(exos_list, pred_exo_list):
         pred_1forward = dict()
         compare, compare_1forward = [], []
         for timestep in exos_list.keys():
-            if timestep == 0:
-                for agent_index in range(len(exos_list[timestep])):
-                    agent_id = exos_list[timestep][agent_index]['id']
-                    pre = np.array([pred_exo_list[timestep][j][agent_index]['pos'] for j in range(pred_len)])
-                    pred[agent_id] = pre
-            else:
-                pred = copy.deepcopy(pred_1forward)
-            
-            pred_1forward = dict()
-            if exos_list.get(timestep+2) is not None and pred_exo_list.get(timestep+2) is not None:
-                key_1forward = timestep+1
-                for i in range(len(exos_list[key_1forward])):
-                    id_1forward = exos_list[key_1forward][i]['id']
-                    try:
-                        pre_1forward = np.array([pred_exo_list[key_1forward][j][i]['pos'] for j in range(pred_len)])
-                    except:
-                        print(f"Error: {timestep}, {agent_id}, {i} {key_1forward} {id_1forward}, "
-                              f"{key_1forward in exos_list.keys()}, "
-                              f"{key_1forward in pred_exo_list.keys()}, "
-                              f"{len(exos_list)}, {len(pred_exo_list)}")
-                        assert False
-                    pred_1forward[id_1forward] = pre_1forward
-            
-            for timestep in pred.keys():
-                if timestep in pred_1forward:
-                    compare.append(pred[timestep])
-                    compare_1forward.append(pred_1forward[timestep])
+            # For DESPOT, if "Reach terminal" is found, then we do not have timestep in pred_exo_list.
+            # Yet we still have timestep in exos_list. Thus we double check here
+            if timestep in exos_list.keys() and timestep in pred_exo_list.keys() and (timestep+1) in exos_list.keys() \
+                    and (timestep+1) in pred_exo_list.keys():
+                if timestep == 0:
+                    for agent_index in range(len(exos_list[timestep])):
+                        agent_id = exos_list[timestep][agent_index]['id']
+                        pre = np.array([pred_exo_list[timestep][j][agent_index]['pos'] for j in range(pred_len)])
+                        pred[agent_id] = pre
+                else:
+                    pred = copy.deepcopy(pred_1forward)
+                
+                pred_1forward = dict()
+                if exos_list.get(timestep+2) is not None and pred_exo_list.get(timestep+2) is not None:
+                    key_1forward = timestep+1
+                    for i in range(len(exos_list[key_1forward])):
+                        id_1forward = exos_list[key_1forward][i]['id']
+                        try:
+                            pre_1forward = np.array([pred_exo_list[key_1forward][j][i]['pos'] for j in range(pred_len)])
+                        except:
+                            print(f"Error: {timestep}, {agent_id}, {i} {key_1forward} {id_1forward}, "
+                                f"{key_1forward in exos_list.keys()}, "
+                                f"{key_1forward in pred_exo_list.keys()}, "
+                                f"{len(exos_list)}, {len(pred_exo_list)}")
+                            assert False
+                        pred_1forward[id_1forward] = pre_1forward
+                
+                for timestep in pred.keys():
+                    if timestep in pred_1forward:
+                        compare.append(pred[timestep])
+                        compare_1forward.append(pred_1forward[timestep])
         
         compare = np.array(compare)
         compare_1forward = np.array(compare_1forward)

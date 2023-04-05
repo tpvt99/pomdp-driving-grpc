@@ -19,7 +19,7 @@ from moped_implementation.planner_wrapper import PlannerWrapper
 
 max_bytes = 500 * 1024 * 1024  # 500Mb
 backup_count = 1  # keep only the latest file
-filename = f"{current_dir}/logpyro4moped.txt"
+filename = f"{current_dir}/logpyro4mopedknnsocial.txt"
 
 max_bytes = 1024 * 1024
 backup_count = 10
@@ -28,6 +28,7 @@ handler = logging.handlers.RotatingFileHandler(
     filename=filename,
     maxBytes=max_bytes,
     backupCount=backup_count,
+    mode='a'
 )
 
 formatter = logging.Formatter(
@@ -66,7 +67,6 @@ class MotionPredictionService(object):
 
         # Step 1. From agents_data, build numpy array (number_agents, observation_len, 2)
 
-        is_error = False
         try:
             agent_id_list = []
             xy_pos_list = []
@@ -106,20 +106,18 @@ class MotionPredictionService(object):
             #print(f"Shape of agents history is {agents_history.shape}")
 
         except Exception as e:
-            is_error = True
             logger.info(f"Error in building numpy array: {e} with inputs {agents_data}")
-            return {'is_error': is_error, 'observation_array': padedd_observation_array}
+            return {'is_error': True, 'observation_array': padedd_observation_array}
         
         try:
             probs, predictions = self.planner.do_predictions(agents_history)
             #logger.info(f"Predictions are {predictions}")
         except Exception as e:
-            is_error = True
             probs = np.ones(agents_history.shape[0])
             # Predictions is the last known position but with shape (number_agents, self.pred_len, 2)
             predictions = agents_history[:, -self.pred_len:, :]
             logger.info(f"Error in prediction: {e} with inputs {agents_history}")
-            return {'is_error': is_error}
+            return {'is_error': True}
 
         #print(f"Predictions are {predictions}")
         #print('eee')
@@ -134,11 +132,10 @@ class MotionPredictionService(object):
                 prob_info = probs[i]
                 agent_predictions = [tuple([float(row[0]), float(row[1])]) for row in predictions[i]]
                 data_response[agentID] = {'agent_prediction': agent_predictions, 'agent_prob': float(prob_info), 'agent_id': agentID}
-            #print('dddd')
 
             # Adding 3 keys
             data_response['observation_array'] = padedd_observation_array
-            data_response['is_error'] = is_error
+            data_response['is_error'] = False
             data_response['moped_model'] = self.planner.model_running
             
         except:
