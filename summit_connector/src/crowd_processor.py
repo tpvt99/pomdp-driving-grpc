@@ -21,7 +21,7 @@ import Pyro4
 import time
 from datetime import datetime
 
-from async_settings import CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_HZ, PRINT_LOG
+from async_settings import ORIGINAL_CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_HZ, PRINT_LOG
 
 def output_time():
     return datetime.now().strftime("%H:%M:%S.%f")[:-3]
@@ -127,14 +127,14 @@ class CrowdProcessor(Summit):
         if not self.ego_car_info:
             return
 
-        if len(self.world.get_actors()) > self.total_num_agents / 1.2 or time.time() - start_time > 50.0:
+        if len(self.world.get_actors()) > self.total_num_agents / 1.2 or time.time() - start_time > 20.0:
             # print("[crowd_processor.py] {} crowd agents ready".format(
                 # len(self.world.get_actors())))
             self.agents_ready_pub.publish(True)
         else:
-            pass
-            # print("[crowd_processor.py] {} percent of agents ready".format(
-                # len(self.world.get_actors()) / float(self.total_num_agents)))
+            #pass
+            print("[crowd_processor.py] {} percent of agents ready".format(
+                len(self.world.get_actors()) / float(self.total_num_agents)))
 
         ego_car_position = self.ego_car_info.car_pos
         ego_car_position = carla.Vector2D(
@@ -297,7 +297,7 @@ if __name__ == '__main__':
     init_time = rospy.Time.now()
     crowd_processor = CrowdProcessor()
 
-    rate = rospy.Rate(CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_HZ)
+    rate = rospy.Rate(ORIGINAL_CROWD_PROCESSOR_UPDATE_FREQUENCY_IN_HZ)
     while not rospy.is_shutdown():
         xxx1 = time.time()
 

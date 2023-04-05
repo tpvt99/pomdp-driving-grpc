@@ -9,6 +9,7 @@
 #include "utils.h"
 #include "despot/interface/pomdp.h"
 #include "moped_param.h"
+#include <iomanip>
 
 using namespace std;
 
@@ -28,7 +29,13 @@ struct CoordHistory {
     std::vector<double> time_history;
 
     void Add(COORD coord, double update_time, double time_per_move) {
-        if ( (coord_history.size() > 0) && (update_time - last_update_time) < 0.95*time_per_move) {
+        // I choose 0.85 as the sleeping for in DESPOT sleep only 0.9 of time_per_move
+        if ( (coord_history.size() > 0) && (update_time - last_update_time) < 0.85*time_per_move  && (time_per_move > 0)) {
+            bool condition1 = (coord_history.size() > 0);
+            bool condition2 = ((update_time - last_update_time) < 0.9 * time_per_move);
+            bool condition3 = (time_per_move > 0);
+
+            //std::cout << "Condition : " << condition1 << " " << condition2 << " " << condition3 << std::endl;
             return;
         }
         if (coord_history.size() < MAX_HISTORY) {
@@ -45,21 +52,16 @@ struct CoordHistory {
     }
 
     void CoordText(std::ostream& out) const {
-        out << "Hist: " << coord_history.size() << ", true hist: " << true_history << " ";
-        if (coord_history.size() >= 1) {
-            out << ". 1st coord x:" << coord_history.at(0).x << " y:" << coord_history.at(0).y << " t:" << time_history.at(0) << " ";
-        }
-        if (coord_history.size() >= 2) {
-            out << ". 2nd coord x:" << coord_history.at(1).x << " y:" << coord_history.at(1).y << " t:" << time_history.at(1) << " ";
-        }
-        if (coord_history.size() >= 4) {
-            out << ". bef-last coord x:" << coord_history.at(coord_history.size()-2).x << " y:" 
-            << coord_history.at(coord_history.size()-2).y << " t:" << time_history.at(coord_history.size()-2) << " ";
-            out << ". last coord x:" << coord_history.at(coord_history.size()-1).x << " y:" 
-            << coord_history.at(coord_history.size()-1).y << " t:" << time_history.at(coord_history.size()-1) << " ";
-        }
-    }
 
+        std::string str = "Hist: " + std::to_string(coord_history.size()) + ", true hist: " + std::to_string(true_history) + " ";
+
+        for (int i = 0; i < coord_history.size(); i++) {
+            str += ". [" + std::to_string(i) + "] x:" + std::to_string(coord_history.at(i).x) + " y:" + std::to_string(coord_history.at(i).y) + " t:" + std::to_string(time_history.at(i)) + " ";
+        }
+
+        out << str;
+    }
+        
 };
 
 struct AgentStruct {
@@ -134,7 +136,12 @@ struct AgentStruct {
     }
 
     void PhongAgentText(std::ostream& out) const {
-        out << " Agent: id " << std::dec << id << " " << ", cur pos: " << pos.x << ", " << pos.y << ". ";
+        out << " Agent - id " << std::dec << id << ", cur pos: "
+            << std::fixed << std::setprecision(2) << pos.x << ", " << pos.y
+            << ", cur yaw/s/v.x/v.y: " << heading_dir << "/"
+            << std::setprecision(2) << speed << "/"
+            << std::setprecision(2) << vel.x << "/"
+            << std::setprecision(2) << vel.y << ".";
         coordHistory.CoordText(out);
         out << endl;
     }
@@ -147,7 +154,10 @@ struct CarStruct {
     double heading_dir;/*[0, 2*PI) heading direction with respect to the world X axis */
 
     void PhongCarText(std::ostream& out) const {
-        out << "Car pos: " << pos.x << ", " << pos.y << ". Car coords history: ";
+        out << " Car - id " << ", cur pos: "
+            << std::fixed << std::setprecision(2) << pos.x << ", " << pos.y
+            << ", cur yaw/vel: " << heading_dir << "."
+            << std::setprecision(2) << vel << ".";
         coordHistory.CoordText(out);
         out << endl;
     }

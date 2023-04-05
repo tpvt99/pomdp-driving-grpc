@@ -1,6 +1,7 @@
 import argparse
 from argparse import Namespace
 from os import path
+import os
 import random
 from os.path import expanduser
 import glob
@@ -19,13 +20,13 @@ logging.basicConfig(
         logging.FileHandler("debug.log"),
         logging.StreamHandler()
     ],
-    filemode = 'w'
+    filemode = 'w' 
 )
 
 home = expanduser("~")
-root_path = os.path.join(home, 'driving_data/log_rewards/knndefault3hz')
-#root_path = os.path.join(home, 'driving_data/DEL/lstmdefault1hz_t0_03_slowdownHz15times_2')
-#root_path = os.path.join(home, 'driving_data_benchmark/gamma1_update')
+#root_path = os.path.join(home, 'driving_data/lanegcn_02Hz_new')
+#root_path = os.path.join(home, 'driving_data/hivt_06Hz_new')
+root_path = os.path.join(home, 'driving_data/official/lanegcn1Hz')
 
 if not os.path.isdir(root_path):
     os.makedirs(root_path)
@@ -77,12 +78,22 @@ def parse_cmd_args():
                         help='GPU ID for hyp-despot')
     parser.add_argument('--t_scale',
                         type=float,
-                        default=0.1,
+                        default=0.0333,
                         # original 1.0,
                         # 3 times slower, 10Hz, t = 0.333 (cv/ca), Needs a bit slow down
                         # 10 times slower 3Hz, t= 0.1 (knn default ~ 378),
                         # 15 times slower 2Hz, t = 0.0667 ( knn social,lstm default)
                         # 30 times slower, 1Hz, t= 0.0333 (lanegcn ~423, hivt ~405, lstm social ~399)
+                        # 50 times slower, 0.6Hz, t= 0.02 (lanegcn ~423, hivt ~405, lstm social ~399)
+                        # 60 times slower, 0.5Hz, t= 0.01667 (lanegcn ~423, hivt ~405, lstm social ~399)
+                        # 100 times slower, 0.3Hz, t= 0.01 (lanegcn ~423, hivt ~405, lstm social ~399)
+                        # 150 times slower, 0.2Hz, t= 0.00667 (lanegcn ~423, hivt ~405, lstm social ~399)
+                        # 300 times slower, 0.1Hz, t= 0.00333 (lanegcn ~423, hivt ~405, lstm social ~399)
+                        # 600 times slower, 0.05Hz, t= 0.00166 (lanegcn)
+                        # 3000 times slower, 0.01Hz, t= 0.000333 (knn)
+
+                        #### REMEMBER TO  ADJUST LENGTH OF EPISODE: 120 if running slower
+
                         help='Factor for scaling down the time in simulation (to search for longer time)')
     parser.add_argument('--make',
                         type=int,
@@ -165,7 +176,7 @@ def update_global_config(cmd_args):
         config.random_seed = random.randint(0, 10000000)
 
     config.launch_summit = bool(cmd_args.launch_sim)
-    config.eps_length = cmd_args.eps_len
+    config.eps_length = cmd_args.eps_len # RUNNING IN 1/2 for KNN as it is too slow
 
     config.monitor = cmd_args.monitor
     config.time_scale = float(cmd_args.t_scale)
@@ -379,12 +390,13 @@ def launch_pomdp_planner(round, run):
     if config.debug:
         launch_file = 'planner_debug.launch'
 
+    # Adjusting .2f to .5f because at 0.1Hz, it becomes 0.000 if .2f
     shell_cmd = 'roslaunch --wait crowd_pomdp_planner ' + \
                 launch_file + \
                 ' gpu_id:=' + str(config.gpu_id) + \
                 ' mode:=' + str(config.drive_mode) + \
                 ' summit_port:=' + str(config.port) + \
-                ' time_scale:=' + str.format("%.2f" % config.time_scale) + \
+                ' time_scale:=' + str.format("%.5f" % config.time_scale) + \
                 ' map_location:=' + config.summit_maploc
 
     pomdp_out = open(get_txt_file_name(round, run), 'w')
@@ -480,8 +492,9 @@ if __name__ == '__main__':
             init_case_dirs()
 
             # launch motion prediction server
-            moped_server = subprocess.Popen(["./agent_server_python.py"],
-                                            cwd=f"{ws_root}/src/moped/")
+            print("Moped server :", f"{ws_root}/src/moped/")
+            #moped_server = subprocess.Popen(["./agent_server_process_python.py"],  cwd=f"{ws_root}/src/moped/")
+            #moped_server = subprocess.Popen(["./agent_server_process_python.py"], cwd=f"{ws_root}/src/moped/")
             # sleep 5 second to let the motion prediction initialize done
             time.sleep(5)
 

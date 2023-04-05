@@ -1,4 +1,4 @@
-#!/home/phong/anaconda3/envs/lanegcn/bin/python
+#!/home/bptran/anaconda3/envs/HiVT/bin/python
 
 
 # Copyright 2015 gRPC authors.
@@ -41,31 +41,61 @@ MAX_HISTORY_MOTION_PREDICTION = 20
 import pathlib
 current_dir = pathlib.Path(__file__).parent.resolve()
 
+max_bytes = 500 * 1024 * 1024  # 500Mb
+backup_count = 1  # keep only the latest file
+filename = f"{current_dir}/logfilelanegcn.txt"
+
+handler = logging.handlers.RotatingFileHandler(
+    filename=filename,
+    maxBytes=max_bytes,
+    backupCount=backup_count,
+)
+
+formatter = logging.Formatter(
+    '%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+)
+
+handler.setFormatter(formatter)
+handler.setLevel(logging.DEBUG)
+
+root_logger = logging.getLogger(__name__)
+root_logger.addHandler(handler)
+root_logger.setLevel(logging.DEBUG)
+
 class Greeter(agentinfo_pb2_grpc.MotionPredictionServicer):
 
     def __init__(self):
-        self.planner = PlannerWrapper()
+        self.planner = PlannerWrapper(pred_len=1)
+        self.logger = root_logger
 
     def Predict(self, request, context):
-        print(f"Multiprocessing id: {multiprocessing.current_process()}")
-        xy_pos_list = []
-        agent_id_list = []
-        start = time.time()
-        for agentInfo in request.agentInfo:
-            x_pos = np.array(agentInfo.x)
-            y_pos = np.array(agentInfo.y)
-            #logging.info(f"Shape of x_pos is {x_pos.shape} and y_pos is {y_pos.shape}")
-            xy_pos = np.concatenate([x_pos[..., np.newaxis], y_pos[..., np.newaxis]], axis=1)  # shape (n,2)
-            # first axis, we pad width=0 at beginning and pad width=MAX_HISTORY_MOTION_PREDICTION-xy_pos.shape[0] at the end
-            # second axis (which is x and y axis), we do not pad anything as it does not make sense to pad anything
-            xy_pos = np.pad(xy_pos, pad_width=((0, MAX_HISTORY_MOTION_PREDICTION - xy_pos.shape[0]), (0, 0)),
-                            mode="edge")
-            xy_pos_list.append(xy_pos)
-            #logging.info(f"[P] Shape of x_pos is {x_pos.shape} and y_pos is {y_pos.shape} and after padd {xy_pos.shape}")
+        #print(f"Multiprocessing id: {multiprocessing.current_process()}")
+        response = agentinfo_pb2.PredictionResponse()
 
-            agent_id_list.append(agentInfo.agentId)
+        try:
+            xy_pos_list = []
+            agent_id_list = []
+            start = time.time()
+            for agentInfo in request.agentInfo:
+                x_pos = np.array(agentInfo.x)
+                y_pos = np.array(agentInfo.y)
+                #logging.info(f"Shape of x_pos is {x_pos.shape} and y_pos is {y_pos.shape}")
+                xy_pos = np.concatenate([x_pos[..., np.newaxis], y_pos[..., np.newaxis]], axis=1)  # shape (n,2)
+                # first axis, we pad width=0 at beginning and pad width=MAX_HISTORY_MOTION_PREDICTION-xy_pos.shape[0] at the end
+                # second axis (which is x and y axis), we do not pad anything as it does not make sense to pad anything
+                xy_pos = np.pad(xy_pos, pad_width=((MAX_HISTORY_MOTION_PREDICTION - xy_pos.shape[0], 0), (0, 0)),
+                                mode="edge")
+                xy_pos_list.append(xy_pos)
+                #logging.info(f"[P] Shape of x_pos is {x_pos.shape} and y_pos is {y_pos.shape} and after padd {xy_pos.shape}")
 
-        agents_history = np.stack(xy_pos_list)  # Shape (number_agents, observation_len, 2)
+                agent_id_list.append(agentInfo.agentId)
+
+
+            agents_history = np.stack(xy_pos_list)  # Shape (number_agents, observation_len, 2)
+        except Exception as e:
+            self.logger.info(f"Error in inputs: {e} with inputs {agents_history}")
+            return response
 
 
         #prediction_time = time.time()
@@ -77,30 +107,34 @@ class Greeter(agentinfo_pb2_grpc.MotionPredictionServicer):
         #logging.info(f"Inputs shape: {agents_history.shape}")
         try:
             probs, predictions = self.planner.do_predictions(agents_history)
+            #self.logger.info(f"Probs: {probs} and predictions: {predictions[:, [0], :]}")
         except Exception as e:
-            logging.info(f"Error in prediction: {e} with inputs {agents_history}")
-            probs = np.ones(agents_history.shape[0])
+            self.logger.info(f"Error in prediction: {e} with inputs {agents_history}")
+            #probs = np.ones(agents_history.shape[0])
             # Predictions is the last known position but with shape (number_agents, 1, 2)
-            predictions = agents_history[:, [-1], :]
+            #predictions = agents_history[:, [-1], :]
+            return response
 
+        #response_time = time.time()
+        try:
+            # Build response:
+            for i, id in enumerate(agent_id_list):
+                prob_info = agentinfo_pb2.ProbabilityInfo(prob = probs[i], agentId = id)
+                agent_info = agentinfo_pb2.AgentInfo()
+                agent_info.agentId = id
+                agent_info.x.append(predictions[i][0][0]) # Get number_agent_id of 1st axis, of first pred of 2nd axis, of x of 3rd axis
+                agent_info.y.append(predictions[i][0][1]) # Get number_agent_id of 1st axis, of first pred of 2nd axis, of y of 3rd axis
 
-        response_time = time.time()
-
-        # Build response:
-        response = agentinfo_pb2.PredictionResponse()
-        for i, id in enumerate(agent_id_list):
-            prob_info = agentinfo_pb2.ProbabilityInfo(prob = probs[i], agentId = id)
-            agent_info = agentinfo_pb2.AgentInfo()
-            agent_info.agentId = id
-            agent_info.x.append(predictions[i][0][0]) # Get number_agent_id of 1st axis, of first pred of 2nd axis, of x of 3rd axis
-            agent_info.y.append(predictions[i][0][1]) # Get number_agent_id of 1st axis, of first pred of 2nd axis, of y of 3rd axis
-
-            response.agentInfo.append(agent_info)
-            response.probInfo.append(prob_info)
+                response.agentInfo.append(agent_info)
+                response.probInfo.append(prob_info)
+        except:
+            self.logger.info(f"Error in outputs")
 
         end = time.time()
         #logging.info(f"Time for producing response: {end - response_time}")
         #logging.info(f"Time for running end-to-end: {end - start}")
+
+        #self.logger.info("OKAY")
 
         return response
 
@@ -108,6 +142,8 @@ class Greeter(agentinfo_pb2_grpc.MotionPredictionServicer):
 def _run_server(bind_address):
     print(f"Server started. Awaiting jobs...")
     NUMBER_THREADS = 1
+    #NUMBER_THREADS = int(_THREAD_CONCURRENCY/4)
+
     server = grpc.server(
         futures.ThreadPoolExecutor(max_workers=int(NUMBER_THREADS)),
         options=[
@@ -141,8 +177,8 @@ def main():
     """
     Inspired from https://github.com/grpc/grpc/blob/master/examples/python/multiprocessing/server.py
     """
-    #NUM_WORKERS = 1 # Each pomdp planner will call their own moped
-    NUM_WORKERS = int(_THREAD_CONCURRENCY/4) #When using 1 instance of server
+    NUM_WORKERS = 1 # Each pomdp planner will call their own moped
+    #NUM_WORKERS = int(_THREAD_CONCURRENCY/4) #When using 1 instance of server
 
     print(f"Initializing server with {NUM_WORKERS} workers")
     torch.multiprocessing.set_start_method('spawn')
@@ -167,30 +203,4 @@ def main():
 
 
 if __name__ == '__main__':
-    max_bytes = 500 * 1024 * 1024  # 500Mb
-    backup_count = 1  # keep only the latest file
-    filename = f"{current_dir}/logfilexxx.txt"
-
-    handler = logging.handlers.RotatingFileHandler(
-        filename=filename,
-        maxBytes=max_bytes,
-        backupCount=backup_count,
-    )
-
-    formatter = logging.Formatter(
-        '%(asctime)s,%(msecs)d %(name)s %(levelname)s %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
-    )
-
-    handler.setFormatter(formatter)
-    handler.setLevel(logging.DEBUG)
-
-    logging.basicConfig(
-        handlers=[handler],
-        level=logging.DEBUG,
-    )
-
-    logging.info(sys.executable)
-    #cProfile.run('main()', sort='tottime')
-
     main()

@@ -245,6 +245,38 @@ void WorldModel::GammaAgentStep(AgentStruct agents[], double& random,
     }
 }
 
+void WorldModel::PhongUpdateAgent(AgentStruct &agent, std::vector<double> agent_prediction) {
+    double prob = agent_prediction.at(0);
+    double next_x = agent_prediction.at(1);
+    double next_y = agent_prediction.at(2);
+
+    COORD old_pos(agent.pos.x, agent.pos.y);
+    COORD new_pos(next_x, next_y);
+
+    agent.pos.x = next_x;
+    agent.pos.y = next_y;
+    agent.coordHistory.Add(COORD(next_x, next_y), Globals::ElapsedTime(), 0); // time_per_move here is 0 so that it can add for prediction
+
+    // Update agent.vel.x, agent.vel.y, agent.heading_dir, agent.speed
+    COORD displacement = new_pos - old_pos;
+    double heading_dir = displacement.GetAngle();
+    double displacement_length = displacement.Length();
+    double speed = displacement_length * 0.3; // Assume each step is 0.3 seconds
+    double vel_x;
+    double vel_y;
+    if (displacement_length > 0.0) {
+        vel_x = displacement.x / displacement_length * speed;
+        vel_y = displacement.y / displacement_length * speed;
+    } else {
+        vel_x = 0;
+        vel_y = 0;
+    }
+    agent.heading_dir = heading_dir;
+    agent.speed = speed;
+    agent.vel.x = vel_x;
+    agent.vel.y = vel_y;
+}
+
 void WorldModel::PhongAgentStep(AgentStruct &agent, int intention_id,  std::map<int, std::vector<double>> result) {
     // Method is called in HiddenBelief::Update()
     if (MopedParams::PHONG_DEBUG) {
@@ -254,16 +286,11 @@ void WorldModel::PhongAgentStep(AgentStruct &agent, int intention_id,  std::map<
     auto it = result.find(agent.id);
     if (it != result.end()) {
         std::vector<double> agent_info = it->second;
-        double prob = agent_info.at(0);
-        double next_x = agent_info.at(1);
-        double next_y = agent_info.at(2);
-
-        agent.pos.x = next_x;
-        agent.pos.y = next_y;
-        agent.coordHistory.Add(COORD(next_x, next_y), Globals::ElapsedTime(), 0); // time_per_move here is 0 so that it can add for prediction
+        PhongUpdateAgent(agent, agent_info);
+        
     } else {
-        if (MopedParams::PHONG_DEBUG)
-            std::cout << "[Phong] WorldModel::PhongAgentStep Cannot find agent in prediction" << std::endl;
+        std::cout << "[Phong] WorldModel::PhongAgentStep Cannot find agent in prediction" << std::endl;
+        ERR("Cannot find agent in prediction. It is better to exit than continue");
     }
 }
 
@@ -278,15 +305,11 @@ void WorldModel::PhongAgentStep(AgentStruct &agent, double& random,  std::map<in
     auto it = result.find(agent.id);
     if (it != result.end()) {
         std::vector<double> agent_info = it->second;
-        double prob = agent_info.at(0);
-        double next_x = agent_info.at(1);
-        double next_y = agent_info.at(2);
-
-        agent.pos.x = next_x;
-        agent.pos.y = next_y;
-        agent.coordHistory.Add(COORD(next_x, next_y), Globals::ElapsedTime(), 0); // time_per_move here is 0 so that it can add for prediction
+        PhongUpdateAgent(agent, agent_info);
+  
     } else {
         std::cout << "[Phong] WorldModel::PhongAgentStep Cannot find agent in prediction" << std::endl;
+        ERR("Cannot find agent in prediction. It is better to exit than continue");
     }
 
 }

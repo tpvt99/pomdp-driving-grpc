@@ -20,7 +20,7 @@ import logging
 import grpc
 import agentinfo_pb2
 import agentinfo_pb2_grpc
-
+import time
 
 def run():
     # NOTE(gRPC Python Team): .close() is possible on a channel and should be
@@ -46,7 +46,7 @@ def run():
 
 
         response = stub.Predict(prediction_request)
-        print(f"Greeter client received: {response}" )
+        #print(f"Greeter client received: {response}" )
 
         agentInfo = response.agentInfo
         probInfo = response.probInfo
@@ -60,4 +60,7 @@ def run():
 
 if __name__ == '__main__':
     logging.basicConfig()
-    run()
+    for i in range(100):
+        s = time.time()
+        run()
+        print(f"Time taken: {time.time() - s}")

@@ -202,7 +202,7 @@ void Controller::InitializeDefaultParameters() {
     if (b_drive_mode == JOINT_POMDP || b_drive_mode == ROLL_OUT) {
         Globals::config.useGPU = false;
         Globals::config.num_scenarios = 5;
-        Globals::config.NUM_THREADS = 10;
+        Globals::config.NUM_THREADS = 1;
         Globals::config.discount = 0.95;
         Globals::config.search_depth = 12;
         Globals::config.max_policy_sim_len = 20;

@@ -61,16 +61,16 @@ std::map<int, std::vector<double>> MotionPredictionClient::Predict(std::vector<A
                 std::vector<double> returnAgentInfo;
 
                 agentinfo::ProbabilityInfo *probInfo = reply.mutable_probinfo(i);
-                agentinfo::AgentInfo *agentInfo = reply.mutable_agentinfo(i);
+                agentinfo::AgentInfo *predictedAgentInfo = reply.mutable_agentinfo(i);
 
                 returnAgentInfo.push_back(probInfo->prob());
-                returnAgentInfo.push_back(agentInfo->x(0));
-                returnAgentInfo.push_back(agentInfo->y(0));
+                returnAgentInfo.push_back(predictedAgentInfo->x(0));
+                returnAgentInfo.push_back(predictedAgentInfo->y(0));
 
 //                std::cout << "Prediction agent " << probInfo->agentid() << " with x_next: " << agentInfo->x(0)
 //                << " and y_next: " << agentInfo->y(0)  << " prob: " << probInfo->prob() << std::endl;
 
-                results.insert({agentInfo->agentid(), returnAgentInfo});
+                results.insert({predictedAgentInfo->agentid(), returnAgentInfo});
             }
             return results;
         } else {
@@ -91,7 +91,7 @@ std::map<int, std::vector<double>> callPython(std::vector<AgentStruct> neighborA
     // static MotionPredictionClient mopedClient(
     //     grpc::CreateChannel("localhost:50051", grpc::InsecureChannelCredentials()));
 
-    MotionPredictionClient mopedClient(
+    static MotionPredictionClient mopedClient(
         grpc::CreateChannel("localhost:50051", grpc::InsecureChannelCredentials()));
         
     return mopedClient.Predict(neighborAgents, car);

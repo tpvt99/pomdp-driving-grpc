@@ -41,6 +41,7 @@ public:
                         std::map<int, std::vector<double>>);
     void PhongAgentStep(AgentStruct &agent, double& random,
                         std::map<int, std::vector<double>>);
+    void PhongUpdateAgent(AgentStruct &agent, std::vector<double> agent_prediction);
 
     void GammaAgentStep(AgentStruct peds[], double& random, int num_ped,
                         CarStruct car); //pedestrian also need to consider car when moving

@@ -18,7 +18,7 @@ from nav_msgs.msg import Odometry
 from tf.transformations import euler_from_quaternion
 from msg_builder.msg import car_info as CarInfo  # panpan
 
-from async_settings import PUREPURSUIT_UPDATE_FREQUENCY_IN_TIME, PRINT_LOG
+from async_settings import ORIGINAL_PUREPURSUIT_UPDATE_FREQUENCY_IN_TIME, PRINT_LOG
 
 PURSUIT_DIST = 5.0  ##1.5 for golfcart
 RATIO_ANGULAR = 0.3
@@ -110,7 +110,7 @@ class Pursuit(object):
         self.car_steer = 0.0
         self.path = Path()
         self.car_info = None
-        self.tm = rospy.Timer(rospy.Duration(PUREPURSUIT_UPDATE_FREQUENCY_IN_TIME), self.cb_pose_timer)  ##0.2 for golfcart; 0.05
+        self.tm = rospy.Timer(rospy.Duration(ORIGINAL_PUREPURSUIT_UPDATE_FREQUENCY_IN_TIME), self.cb_pose_timer)  ##0.2 for golfcart; 0.05
         rospy.Subscriber("ego_state", CarInfo, self.cb_car_info, queue_size=1)
         self.cmd_steer_pub = rospy.Publisher("/purepursuit_cmd_steer", Float32, queue_size=1)
         self.length = 2.8
