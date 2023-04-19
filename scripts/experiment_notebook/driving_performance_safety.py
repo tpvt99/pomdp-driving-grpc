@@ -8,8 +8,8 @@ def get_corners(agent):
     x, y = agent['pos']
     heading = agent['heading']
 
-    dx = width / 2
-    dy = length / 2
+    dx = length / 2
+    dy = width / 2
 
     corners = [
         [x - dx, y - dy],

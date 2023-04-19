@@ -235,18 +235,23 @@ def error_handler(e):
         'Error on file {} line {}'.format(sys.exc_info()[-1].tb_frame.f_code.co_filename, sys.exc_info()[-1].tb_lineno),
         type(e).__name__, e)
     
-def get_recorded_data(ABSOLUTE_DIR):
+def get_recorded_data(ABSOLUTE_DIR, recorded_data = dict()):
     '''
         Get all recorded data from ABSOLUTE_DIR
         The recorded data can be used in the below get_prediction_and_driving_performance
+        recorded_data is a dictionary, key is file_path and values is list of recorded.
     '''
+    
     # The key of recorded data is on a path file.
-    recorded_data = {}
     for root, subdirs, files in os.walk(ABSOLUTE_DIR):
         if len(files) > 0:
             for file in files:
                 if file.endswith('.txt'):
                     file_path = os.path.join(root, file)
+                    if file_path in recorded_data.keys():
+                        print(f"File path {file_path} is already processed. Continue")
+                        continue
+
                     print(f"Processing {file_path}")
                     try:
                         action_list, ego_list, ego_path_list, exos_list, coll_bool_list, \
@@ -263,7 +268,7 @@ def get_recorded_data(ABSOLUTE_DIR):
 
     return recorded_data
 
-def get_prediction_and_driving_performance(method_name, max_files_per_method=30, recorded_data_map = None):
+def get_prediction_and_driving_performance(method_name, max_files_per_method=50, recorded_data = {}):
     #ABSOLUTE_DIR = '/home/phong/driving_data/official/same_computation/lstmdefault_1Hz/'
     '''
         Recorded data map, key is method, value is another dict, whose key is file, and values is recorded data
@@ -302,18 +307,15 @@ def get_prediction_and_driving_performance(method_name, max_files_per_method=30,
         'gamma_time': [] # available only for gamma
     }
 
-    if recorded_data is None:
-        recorded_data = {}
-
     number_of_files_to_process = max_files_per_method
 
-    for file_path in recorded_data_map[method_name].keys():
+    for file_path in recorded_data.keys():
         action_list, ego_list, ego_path_list, exos_list, coll_bool_list, \
             pred_car_list, pred_exo_list, trial_list, depth_list, expanded_nodes, total_nodes, gamma_time = recorded_data[file_path]
 
         # The number of steps are too small which can affect ADE/FDE, thus we ignore these files
-        if len(ego_list) <= 20:
-            print(f'Length of step is less than 20. Skip this record {file_path}')
+        if len(ego_list) <= 10:
+            print(f'Length of step is less than 10. Skip this record {file_path}')
             continue
 
         # Tree performance
@@ -373,7 +375,7 @@ def get_prediction_and_driving_performance(method_name, max_files_per_method=30,
         driving_performance['efficiency']['efficiency_time'].append(efficiency_time)
         driving_performance['efficiency']['distance_traveled'].append(distance_travel)
 
-        print(f"avg_speed {avg_speed:.2f}, track-err {tracking_error:.2f} eff-time {efficiency_time:.2f}", end=" ")
+        print(f"avg_speed {avg_speed:.2f}, track-err {tracking_error:.2f} eff-time {efficiency_time:.2f}")
     
 
     return prediction_performance, driving_performance, tree_performance
