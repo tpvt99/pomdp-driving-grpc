@@ -24,7 +24,6 @@ from pathlib2 import Path
 import carla
 import summit
 import random
-from basic_agent import BasicAgent
 
 DATA_PATH = Path(summit_root)/'Data'
 
@@ -38,9 +37,33 @@ def draw_waypoints(waypoints, world, color=carla.Color(255, 0, 0), life_time=50.
             color,
             life_time)
 
+import numpy as np
+
+def bicycle_model(current_state, action, dt):
+    x, y, yaw, vel_x, vel_y = current_state
+    acceleration, steering_angle = action
+
+    # Calculate the scalar speed
+    speed = np.sqrt(vel_x**2 + vel_y**2)
+
+    # Update the position and yaw
+    x += speed * np.cos(yaw) * dt
+    y += speed * np.sin(yaw) * dt
+    yaw += speed * np.tan(steering_angle) / L * dt  # L is the wheelbase of the vehicle
+
+    # Ensure yaw is within -pi to pi range
+    yaw = (yaw + np.pi) % (2 * np.pi) - np.pi
+
+    # Update the longitudinal and lateral velocities
+    vel_x = speed * np.cos(yaw) + acceleration * np.cos(yaw) * dt
+    vel_y = speed * np.sin(yaw) + acceleration * np.sin(yaw) * dt
+
+    next_state = np.array([x, y, yaw, vel_x, vel_y])
+    return next_state
+
 
 class CrossEntropyMPC:
-    def __init__(self, iterations, horizon, num_samples, num_elites, desired_trajectories, weights, dt):
+    def __init__(self, iterations, horizon, num_samples, num_elites, desired_trajectories, weights, dt, L):
         self.horizon = horizon
         self.num_samples = num_samples
         self.num_elites = num_elites
@@ -48,36 +71,8 @@ class CrossEntropyMPC:
         self.dt = dt
         self.iterations = iterations
         self.weights = weights
-
-    # def update_bounding_box_corners(current_state, delta_position, delta_yaw):
-    #     '''
-    #     Update the bounding box corners of the vehicle based on its current state, change in position, and change in yaw.
-
-    #     Parameters:
-    #     current_state (np.array): The current state of the vehicle, which contains the bounding box corner positions.
-    #                             Shape: [x, y, yaw, v.x, v.y, top-left corner, top-right corner, bottom-right corner, bottom-left corner]
-    #     delta_position (np.array): The change in position (x, y) of the vehicle.
-    #                             Shape: [delta_x, delta_y]
-    #     delta_yaw (float): The change in yaw of the vehicle.
-
-    #     Returns:
-    #     np.array: The updated bounding box corners of the vehicle.
-    #             Shape: [updated top-left corner, updated top-right corner, updated bottom-right corner, updated bottom-left corner]
-    #     '''
-
-    #     # Extract the current bounding box corners
-    #     bb_corners = current_state[5:].reshape(4, 2)
-
-    #     # Create a rotation matrix for the delta_yaw
-    #     rot_matrix = np.array([
-    #         [np.cos(delta_yaw), -np.sin(delta_yaw)],
-    #         [np.sin(delta_yaw), np.cos(delta_yaw)]
-    #     ])
-
-    #     # Update the bounding box corners by applying the rotation and translation
-    #     updated_bb_corners = np.dot(bb_corners, rot_matrix.T) + delta_position
-
-    #     return updated_bb_corners
+        self.desired_speed = 6.0
+        self.L = L
 
 
     def optimize(self, ego_state, exo_states, exo_predictions):
@@ -88,15 +83,17 @@ class CrossEntropyMPC:
             exo_predictions = dict[exo_id] = [(x, y), (x, y), ...]
         '''
         mean = np.zeros((self.horizon, 2))
+        #mean[:, 0] = self.desired_speed/2
         covariance = np.tile(np.eye(2), (self.horizon, 1, 1))
 
-        for _ in range(self.iterations):
+        for iter in range(self.iterations):
             actions = self._sample_actions(mean, covariance)
             costs = np.zeros(self.num_samples)
 
             for i, action_seq in enumerate(actions):
                 current_state = ego_state.copy()
                 for t, action in enumerate(action_seq):
+                    #print('Iteration: {}, Sample: {}, Time: {} with action {}'.format(iter, i, t, action))
                     delta_position = np.array([
                         current_state[3] * self.dt + 0.5 * action[0] * np.cos(current_state[2]) * self.dt ** 2,
                         current_state[4] * self.dt + 0.5 * action[0] * np.sin(current_state[2]) * self.dt ** 2,
@@ -112,13 +109,18 @@ class CrossEntropyMPC:
                         action[0] * np.sin(current_state[2]) * self.dt
                     ])
 
-                    #next_state[5:] = self.update_bounding_box_corners(current_state, delta_position, delta_yaw)
+                    next_state_bicyle = bicycle_model(current_state[:5].copy(), action, self.dt)
+                    #print('Next state: {}, \n Next state bicycle: {}'.format([round(o,1) for o in next_state], [round(o,1) for o in next_state_bicyle]))
+                    next_state[:5] = next_state_bicyle
 
-                    costs[i] += self._cost(next_state, action, self.desired_trajectories[t], exo_states, exo_predictions)
+                    costs[i] += self._cost(next_state, action, self.desired_trajectories, exo_states, exo_predictions, t)
                     current_state = next_state
 
             elites_indices = np.argsort(costs)[:self.num_elites]
             elites = actions[elites_indices]
+
+            if (iter+1) % 50 == 0:
+                print("Iteration {} with costs: {} - {}".format(iter, costs[elites_indices[0]], costs[elites_indices[1]]))
 
             mean, covariance = self._update_distribution(elites)
 
@@ -141,7 +143,7 @@ class CrossEntropyMPC:
                 [np.sin(angle), np.cos(angle)]
             ])
 
-            return [center + rotation_matrix @ corner for corner in corners]
+            return [center + np.matmul(rotation_matrix, corner) for corner in corners]
 
         def _project(corners, axis):
             projections = [np.dot(corner, axis) for corner in corners]
@@ -239,6 +241,15 @@ class CrossEntropyMPC:
         
     #     return False
 
+    def _simplified_check_collision(self, ego_state, exo_pos_at_t, exo_state_at_0):
+        ego_radius = 0.5 * ego_state[6]  # half of the ego vehicle length
+        exo_radius = 0.5 * exo_state_at_0[6]  # half of the exo vehicle length
+
+        distance = np.linalg.norm(ego_state[:2] - exo_pos_at_t)
+        min_distance = ego_radius + exo_radius
+
+        return distance < min_distance
+
     
     def _cost(self, next_state, action, desired_trajectory, exo_states, exo_predictions, current_t):
         '''
@@ -253,23 +264,41 @@ class CrossEntropyMPC:
             Also we can access exo_states[exo_id][t] to get the state of exo vehicle at current time step
         '''
         # Calculate the tracking error cost
-        tracking_error = np.linalg.norm(next_state[:2] - desired_trajectory[current_t])
+        #print("Inside cost: next state {} action {} desired trajectory {} current t "\
+        #"exo states {} exo predictions {} current t {}".format(next_state, action, desired_trajectory, exo_states, exo_predictions, current_t))
+        tracking_error = np.linalg.norm(next_state[0:2] - desired_trajectory[current_t])
+        #print('Shape of desired trajectory: ', desired_trajectory.shape)
         tracking_cost = self.weights[0] * tracking_error
 
+        # Calculate the yaw error cost
+        # desired_yaw = np.arctan2(desired_trajectory[current_t][1] - next_state[1], desired_trajectory[current_t][0] - next_state[0])
+        # yaw_error = (next_state[2] - desired_yaw) % (2 * np.pi)
+        # yaw_error = np.minimum(yaw_error, 2 * np.pi - yaw_error)
+        # yaw_cost = self.weights[1] * yaw_error
+
+        # Calculate the speed encouragement cost
+        speed_diff = (self.desired_speed - np.linalg.norm(next_state[3:5]))**2
+        speed_cost = self.weights[2] * speed_diff
+
+        control_effort_cost = yaw_cost + speed_cost
         # Calculate the control effort cost
-        control_effort_cost = self.weights[1] * (action[0]**2 + action[1]**2)
+        #control_effort_cost = self.weights[1] * (np.linalg.norm(next_state[3:5]) - self.desired_speed)**2
+        #control_effort_cost += 5.0 * action[1]**2 # Penalize yaw rate
 
         # Calculate the collision cost
         collision_cost = 0
         for exo_id, exo_pred in exo_predictions.items():
             exo_state_at_0 = exo_states[0] # To know the initial position, heading, and bbox to find the bbox of future timestep
             exo_pred_at_t = exo_pred[current_t] # To know the future position
-            if self._check_collision(next_state, exo_pred_at_t, exo_state_at_0):
-                collision_cost = self.weights[2]
+            if self._simplified_check_collision(next_state, exo_pred_at_t, exo_state_at_0):
+                collision_cost = self.weights[3]
                 break
 
         # Calculate the total cost
         total_cost = tracking_cost + control_effort_cost + collision_cost
+        # if (current_t+1) % 10 == 0:
+        #     print("Cost at time step {}: tracking  {} control {} collision {}, state {} total cost {}".format(current_t, tracking_cost, control_effort_cost, collision_cost,
+        #                 [round(o,1) for o in next_state] ,total_cost))
 
         return total_cost
 
@@ -319,11 +348,29 @@ class CrossEntropyMPC:
 
         return elite_mean, elite_cov
 
+    def update_trajectories(self, new_trajectories):
+        '''
+            Update the desired trajectories
+            At every timestep, we need to update new trajectories.
+            Because the desired trajectory is a function of time.
+        '''
+        self.desired_trajectories = new_trajectories
 
-
-client = carla.Client('localhost', 15452)
+client = carla.Client('localhost', 2000)
 client.set_timeout(2.0)
 world = client.get_world()
+settings = world.get_settings()
+settings.synchronous_mode = False
+settings.fixed_delta_seconds = 0.03  # Default value is usually 0.1 seconds per frame
+world.apply_settings(settings)
+run_flag = True
+def run_simulation(world, num_ticks, tick_interval):
+    settings.synchronous_mode = True
+    world.apply_settings(settings)
+
+    while run_flag:
+        world.tick()
+        time.sleep(tick_interval)
 
 map_location = 'meskel_square'
 
@@ -360,14 +407,14 @@ def get_yaw(path_point, path_point_next):
 
 path = rand_path(
     sumo_network, 200, 1.0, sumo_network_spawn_segments,
-    min_safe_points=100, rng=random.Random(42))
+    min_safe_points=100, rng=random.Random(90))
 
 print("Path[0]: ", path[0], " position: ", get_position(path[0]))
 # Creating carla waypoints
 
 values = [get_position(path[i]) for i in range(len(path) - 1)]
 print(values[0]) # A vector2D
-draw_waypoints(values, world, color=carla.Color(r=0, g=255, b=0), life_time=20)
+draw_waypoints(values, world, color=carla.Color(r=0, g=255, b=0), life_time=200)
 
 # We first reset the world
 actor_list = world.get_actors()
@@ -396,20 +443,53 @@ print(vehicle.get_transform())
 print(spawn_trans)
 ### Now is the control part
 
+# Get the vehicle's physics control object
+physics_control = vehicle.get_physics_control()
+wheel_positions = [w.position / 100 for w in physics_control.wheels]
+
+# Get the positions of the front and rear wheels
+front_left_wheel = wheel_positions[0]
+front_right_wheel = wheel_positions[1]
+rear_left_wheel = wheel_positions[2]
+rear_right_wheel = wheel_positions[3]
+# print(physics_control.wheels[0].position.x)
+# print(physics_control.wheels[0].position.y)
+# print(front_left_wheel.x, front_left_wheel.y)
+# print(front_left_wheel, front_right_wheel, rear_left_wheel, rear_right_wheel)
+# Calculate the front and rear axle positions
+
+front_left_wheel_np = np.array([front_left_wheel.x, front_left_wheel.y])
+front_right_wheel_np = np.array([front_right_wheel.x, front_right_wheel.y])
+rear_left_wheel_np = np.array([rear_left_wheel.x, rear_left_wheel.y])
+rear_right_wheel_np = np.array([rear_right_wheel.x, rear_right_wheel.y])
+
+front_axle_position = (front_left_wheel_np + front_right_wheel_np) / 2
+rear_axle_position = (rear_left_wheel_np + rear_right_wheel_np) / 2
+
+# Calculate the wheelbase (L)
+L = np.linalg.norm(np.array(front_axle_position) - np.array(rear_axle_position))
+
 
 # Set up the CrossEntropyMPC
-horizon = 10
-num_samples = 1000
+horizon = 5
+num_samples = 200
 num_elites = 50
 desired_trajectories = np.array([[val.x, val.y] for val in values])
-dt = 0.3
+dt = 3
 iterations = 100
-weights = np.array([1.0, 1.0, 1.0])
-mpc = CrossEntropyMPC(iterations, horizon, num_samples, num_elites, desired_trajectories, weights, dt)
+weights = np.array([50.0, 10.0, 10.0, 100.0])
+mpc = CrossEntropyMPC(iterations, horizon, num_samples, num_elites, desired_trajectories, weights, 0.3, L)
+
+import threading
+
 
 # Main control loop
 try:
+    simulation_thread = threading.Thread(target=run_simulation, args=(world, 1, 0.3))
+    simulation_thread.start()
     while True:
+        start_time = time.time()
+        
         # Get the current state of the ego vehicle
         ego_transform = vehicle.get_transform()
         ego_location = ego_transform.location
@@ -426,6 +506,7 @@ try:
             width,
             length
         ])
+        print('Current state: ', vehicle_state)
 
         # Generate predictions for other vehicles
         # other_vehicles = world.get_actors().filter("vehicle.*")
@@ -447,20 +528,33 @@ try:
         #     ])
 
         #other_vehicles_prediction = np.array(other_vehicles_prediction)
+        exo_vehicles = {}
+        exo_predictions = {}
 
         # Optimize control inputs using CrossEntropyMPC
-        optimal_action = mpc.optimize(vehicle_state, [], [])
-
+        optimal_action = mpc.optimize(vehicle_state, exo_vehicles, exo_predictions)
+        print('Optimal action: ', optimal_action)
         # Apply control inputs to the ego vehicle
         control = carla.VehicleControl()
         control.throttle = max(0, min(1, optimal_action[0]))
         control.steer = max(-1, min(1, optimal_action[1]))
         vehicle.apply_control(control)
 
+        # Update trajectories
+        desired_trajectories = desired_trajectories.copy()[1:]
+        mpc.update_trajectories(desired_trajectories)
+
         # Wait for dt seconds
-        time.sleep(dt)
+        time.sleep(max(0, dt - (time.time() - start_time)))
+        print("Time taken: ", time.time() - start_time)
 
 finally:
     vehicle.destroy()
+    run_flag = False
+
+    simulation_thread.join()
+    # Don't forget to reset the fixed_delta_seconds and synchronous_mode when you're done
+    settings.synchronous_mode = False
+    world.apply_settings(settings)
 
 
