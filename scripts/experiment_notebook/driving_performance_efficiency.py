@@ -85,14 +85,21 @@ def expected_travel_time(ego_list, path, desired_speed):
 # The lower the better because it means the car is driving faster
 def efficiency_time_traveled(ego_list, path, desired_speed=6.0):
     
-    actual_time = actual_travel_time(ego_list)
+    #actual_time = actual_travel_time(ego_list)
+    dist = distance_traveled(ego_list)
+    avg_speed = average_speed(ego_list)
+    avg_time = dist / avg_speed
+    expected_time = dist / desired_speed
     # A simple expected time by assuming each time step is 0.3 seconds
-    expected_time = len(ego_list) * 0.3
+    #expected_time = len(ego_list) * 0.3
     # A more complicated expected time
     #expected_time2 = expected_travel_time(ego_list, path, desired_speed)
     #print(f"Actual time: {actual_time}, Expected time: {expected_time}")
 
-    time_efficiency = actual_time / expected_time
+    # Old formular
+    #time_efficiency = actual_time / expected_time
+    # New formula:
+    time_efficiency = avg_time / expected_time
 
     return time_efficiency
 
@@ -101,7 +108,7 @@ def efficiency_time_traveled(ego_list, path, desired_speed=6.0):
 # The higher the better
 def average_speed(ego_list):
     speeds = [ego_data['speed'] for timestep, ego_data in ego_list.items()]
-    return np.mean(speeds)
+    return np.mean(np.abs(speeds))
 
 
 ### ----------- Efficiency 3 Tracking error --------------- ###

@@ -273,7 +273,7 @@ def plot_driving_performance_sameHz(prediction_performance_map, driving_performa
         performance = []
 
         for j, freq in enumerate(frequencies):
-            print(f"Inside plot: {performance_mean[f'{method}{freq}']}")
+            print(f"{method} in {freq}: {performance_mean[f'{method}{freq}']['driving']}")
             assert f"{method}{freq}" in performance_mean.keys()
             if np.isnan(performance_mean[f"{method}{freq}"][driving_metric]):
                 performance.append(0.0)
@@ -553,7 +553,7 @@ if __name__ == "__main__":
     # Section II, 3rd Drawbacks: does not care time constraints
     # Plot 1 - Only Either Driving Performance, Efficiency, Safety, Comfort in 1 plot. 
     # Bar plot. Each sub-bar is method, each bar in sub-bar is frequency. Each bar is mean value
-    #plot_driving_performance_sameHz(prediction_performance_DESPOT, driving_performance_DESPOT, list(prediction_performance_DESPOT.keys()))
+    # plot_driving_performance_sameHz(prediction_performance_DESPOT, driving_performance_DESPOT, list(prediction_performance_DESPOT.keys()))
     # We can also have scatter plot here. 
 
     # Plot 2 - Threshold

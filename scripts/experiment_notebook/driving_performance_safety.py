@@ -40,14 +40,22 @@ def check_collision(ego, exo):
     # Check for collision
     return dist < box_extents_sum
 
-def check_collision_by_considering_headings(ego, exo):
+def check_collision_by_distance(ego, exo):
+    x, y = ego['pos']
+    x_exo, y_exo = exo['pos']
+    return np.sqrt((x-x_exo)**2 + (y-y_exo)**2)
+
+def check_collision_by_considering_headings(ego, exo, buffer):
     ego_corners = get_corners(ego)
     exo_corners = get_corners(exo)
     
     ego_polygon = Polygon(ego_corners)
     exo_polygon = Polygon(exo_corners)
 
-    return ego_polygon.intersects(exo_polygon)
+     # Calculate the buffered ego polygon with the near_miss_threshold
+    buffered_ego_polygon = ego_polygon.buffer(buffer)
+
+    return buffered_ego_polygon.intersects(exo_polygon)
 
 def find_collision_rate(ego_dict, exos_dict):
     collision_count = 0
@@ -151,7 +159,7 @@ def find_near_miss_rate(ego_dict, exos_dict):
 
 # ---------------- Safety 3 - Time-to-collision rate ------------------------
 
-def time_to_collision(ego, exo):
+def time_to_collision(ego, exo, reaction_time = 1.0):
     ego_vel = np.array(ego['vel'])
     exo_vel = np.array(exo['vel'])
     relative_vel = exo_vel - ego_vel
@@ -166,7 +174,7 @@ def time_to_collision(ego, exo):
     min_ttc = np.inf
 
     for t in np.arange(0, 3, 0.5):  # Sample times from 0 to 10 seconds with 0.1-second increments
-        future_ego_corners = [np.array(corner) + t * ego_vel for corner in ego_corners]
+        future_ego_corners = [np.array(corner) + (t + reaction_time) * ego_vel for corner in ego_corners]
         future_exo_corners = [np.array(corner) + t * exo_vel for corner in exo_corners]
 
         ego_polygon = Polygon(future_ego_corners)
@@ -179,8 +187,12 @@ def time_to_collision(ego, exo):
     return min_ttc
 
 
-def find_ttc(ego_dict, exos_dict):
-    total_time_steps = len(ego_dict)
+def find_ttc(ego_dict, exos_dict, reaction_time=1.0):
+    '''
+        If reaction_time = 0.0, this is ttc
+        Otherwise, it is ttr(time to react)
+    '''
+    total_time_steps = 0
     true_min_ttc = np.inf
     mean_min_ttc = 0
 
@@ -201,8 +213,81 @@ def find_ttc(ego_dict, exos_dict):
             true_min_ttc = min(true_min_ttc, min_ttc)
             if min_ttc != np.inf:
                 mean_min_ttc += min_ttc
+                total_time_steps += 1
     
     mean_min_ttc /= total_time_steps
 
     # Calculate the collision rate
     return true_min_ttc, mean_min_ttc
+
+
+#### ----------- Final Safety, Combining mine with Haoran ----------
+
+def find_safety(ego_dict, exos_dict):
+    
+    near_threshold = 1.0
+    near_distance = 2.0
+    
+    collision_count = 0 # For collision
+    near_collision_count = 0 # For collision
+    near_distance_count = 0 # For collision
+
+    true_min_ttc = np.inf # For ttc
+    mean_min_ttc = 0 # For ttc
+    true_min_ttr = np.inf # For ttr
+    mean_min_ttr = 0 # For ttr
+
+    total_time_steps = 0
+
+    # Iterate through each time step in the episode
+    for time_step in list(ego_dict.keys()):
+        # We are not sure time_step is in exos_dict so we check
+        if time_step in exos_dict.keys():
+            ego_agent = ego_dict[time_step]
+            exo_agents = exos_dict[time_step]
+
+            min_ttc = np.inf
+            min_ttr = np.inf
+
+            # Check for collisions with exo cars at the current time step
+            isCollision = False
+            for exo_agent in exo_agents:
+                if check_collision_by_considering_headings(ego_agent, exo_agent, buffer=-0.5):
+                    collision_count += 1
+                    isCollision = True
+                if check_collision_by_considering_headings(ego_agent, exo_agent, buffer=near_threshold):
+                    near_collision_count += 1
+                if check_collision_by_distance(ego_agent, exo_agent):
+                    near_distance_count += 1
+
+                if isCollision:
+                    break
+
+                ttc = time_to_collision(ego_agent, exo_agent)
+                min_ttc = min(min_ttc, ttc)
+                ttr = time_to_collision(ego_agent, exo_agent, 1.0)
+                min_ttr = min(min_ttr, ttr)
+
+            true_min_ttc = min(true_min_ttc, min_ttc)
+            true_min_ttr = min(true_min_ttr, min_ttr)
+
+            if min_ttc != np.inf:
+                mean_min_ttc += min_ttc
+
+            if min_ttr != np.inf:
+                mean_min_ttr += min_ttr
+            
+            total_time_steps += 1
+
+            if isCollision:
+                break
+
+    # Calculate the collision rate
+    collision_rate = collision_count / total_time_steps
+    near_collision_rate = near_collision_count / total_time_steps
+    near_distance_rate = near_distance_count / total_time_steps
+    mean_min_ttc /= total_time_steps
+    mean_min_ttr /= total_time_steps
+
+    return collision_rate, near_collision_rate, near_distance_rate, \
+        mean_min_ttc, mean_min_ttr

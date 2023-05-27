@@ -13,7 +13,7 @@ import pandas as pd
 import statsmodels.api as sm
 import numpy as np
 
-from common_performance_stats import get_dynamic_ade
+from common_performance_stats import get_dynamic_ade, get_dynamic_ade_eachmap
 
 # Weights for each metric within a category
 safety_weights = {
@@ -205,6 +205,39 @@ def scatter_plot_multi_pred_3_metric(prediction_performance, driving_performance
     all_ade_1, safety_data_1 = remove_outliers_iqr(all_ade, all_safety, multiplier=1.5)
     all_ade_2, comfort_data_2 = remove_outliers_iqr(all_ade, all_comfort, multiplier=1.5)
     all_ade_3, efficiency_data_3 = remove_outliers_iqr(all_ade, all_efficiency, multiplier=1.5)
+
+    
+    interval1 = (np.max(all_ade_1)-np.min(all_ade_1))/30
+    bins1 = np.arange(np.min(all_ade_1),np.max(all_ade_1), interval1)
+    bin_indices1 = np.digitize(all_ade_1, bins1)
+
+    interval2 = (np.max(all_ade_2)-np.min(all_ade_2))/30
+    bins2 = np.arange(np.min(all_ade_2),np.max(all_ade_2), interval2)
+    bin_indices2 = np.digitize(all_ade_2, bins2)
+
+    interval3 = (np.max(all_ade_3)-np.min(all_ade_3))/30
+    bins3 = np.arange(np.min(all_ade_3),np.max(all_ade_3), interval3)
+    bin_indices3 = np.digitize(all_ade_3, bins3)
+
+    all_safety_means, all_comfort_means, all_efficiency_means = [], [], []
+    for i in range(1, len(bins1)):
+        all_safety_means.append(np.mean(safety_data_1[bin_indices1 == i]))
+    for i in range(1, len(bins2)):
+        all_comfort_means.append(np.mean(comfort_data_2[bin_indices2 == i]))
+    for i in range(1, len(bins3)):
+        all_efficiency_means.append(np.mean(efficiency_data_3[bin_indices3 == i]))
+    
+    all_ade_means1 = bins1[:-1] + interval1/2
+    all_ade_means2 = bins2[:-1] + interval2/2
+    all_ade_means3 = bins3[:-1] + interval3/2
+
+    axes[0].scatter(x=all_ade_means2, y=all_comfort_means, c='red', marker='o')
+    axes[1].scatter(x=all_ade_means1, y=all_safety_means, c='red', marker='o')
+    axes[2].scatter(x=all_ade_means3, y=all_efficiency_means, c='red', marker='o')
+    
+    # import pdb;pdb.set_trace()
+
+
     
     # all_ade_cons = sm.add_constant(all_ade_1)
     # model = sm.OLS(safety_data_1, all_ade_cons)
@@ -227,62 +260,66 @@ def scatter_plot_multi_pred_3_metric(prediction_performance, driving_performance
     # axes[2].plot(all_ade_cons[:,1], predicted_y)
     # print(results.summary())
 
-    all_comfort_cons = sm.add_constant(comfort_data_2)
-    model = sm.OLS(all_ade_2, all_comfort_cons)
-    results = model.fit(loss='mse')
-    predicted_ade = results.predict(all_comfort_cons)
-    axes[0].plot(predicted_ade, all_comfort_cons[:,1])
-    print(results.summary())
+    # all_comfort_cons = sm.add_constant(comfort_data_2)
+    # model = sm.OLS(all_ade_2, all_comfort_cons)
+    # results = model.fit(loss='mse')
+    # predicted_ade = results.predict(all_comfort_cons)
+    # axes[0].plot(predicted_ade, all_comfort_cons[:,1])
+    # print(results.summary())
 
-    all_safety_cons = sm.add_constant(safety_data_1)
-    model = sm.OLS(all_ade_1, all_safety_cons)
-    results = model.fit(loss='mse')
-    predicted_ade = results.predict(all_safety_cons)
-    axes[1].plot(predicted_ade, all_safety_cons[:,1])
-    print(results.summary())
+    # all_safety_cons = sm.add_constant(safety_data_1)
+    # model = sm.OLS(all_ade_1, all_safety_cons)
+    # results = model.fit(loss='mse')
+    # predicted_ade = results.predict(all_safety_cons)
+    # axes[1].plot(predicted_ade, all_safety_cons[:,1])
+    # print(results.summary())
 
-    all_efficiency_cons = sm.add_constant(efficiency_data_3)
-    model = sm.OLS(all_ade_3, all_efficiency_cons)
-    results = model.fit(loss='mse')
-    predicted_ade = results.predict(all_efficiency_cons)
-    axes[2].plot(predicted_ade, all_efficiency_cons[:,1])
-    print(results.summary())
+    # all_efficiency_cons = sm.add_constant(efficiency_data_3)
+    # model = sm.OLS(all_ade_3, all_efficiency_cons)
+    # results = model.fit(loss='mse')
+    # predicted_ade = results.predict(all_efficiency_cons)
+    # axes[2].plot(predicted_ade, all_efficiency_cons[:,1])
+    # print(results.summary())
 
     # Update axis labels
 
-    axes[0].scatter(x=all_ade_2, y=comfort_data_2, c='red', marker='o')
-    axes[1].scatter(x=all_ade_1, y=safety_data_1, c='red', marker='o')
-    axes[2].scatter(x=all_ade_3, y=efficiency_data_3, c='red', marker='o')
+    # axes[0].scatter(x=all_ade_2, y=comfort_data_2, c='red', marker='o')
+    # axes[1].scatter(x=all_ade_1, y=safety_data_1, c='red', marker='o')
+    # axes[2].scatter(x=all_ade_3, y=efficiency_data_3, c='red', marker='o')
 
     axes[0].set_title('Comfort')
     axes[0].set_xlabel(f'{prediction_metric}')
     axes[0].set_ylabel('weighted comfort')
-    axes[0].set_xlim([0, x_limit])
+    # axes[0].set_xlim([0, x_limit])
 
 
     axes[1].set_title('Safety')
     axes[1].set_xlabel(f'{prediction_metric}')
     axes[1].set_ylabel('weighted safety')
-    axes[1].set_xlim([0, x_limit])
+    # axes[1].set_xlim([0, x_limit])
     
     axes[2].set_title('Efficiency')
     axes[2].set_xlabel(f'{prediction_metric}')
     axes[2].set_ylabel('weighted efficiency')
-    axes[2].set_xlim([0, x_limit])
+    # axes[2].set_xlim([0, x_limit])
 
     # Show the plot
     plt.savefig(f"0_{prediction_metric}_vs_drivingPerformance_RVO.png")
     plt.clf()
 
-    return method_performance
-
 def get_method_performance(prediction_performance, driving_performance, methods_to_plot, prediction_metric):  
 
     max_min_method = find_max_min(driving_performance, methods_to_plot)
-    method_performance = np.zeros(len(methods_to_plot))
+    method_performance = {}
+    for key in ['safety','comfort','efficiency','performance']:
+        method_performance[key] = []
+
     for i, method in enumerate(methods_to_plot):
-        _, _, _, _, performance = get_normalized_data(method, prediction_performance, driving_performance, max_min_method, prediction_metric)
-        method_performance[i] = np.mean(performance)
+        _, safety, comfort, efficiency, performance = get_normalized_data(method, prediction_performance, driving_performance, max_min_method, prediction_metric)
+        method_performance['safety'].append(np.mean(safety))
+        method_performance['comfort'].append(np.mean(comfort))
+        method_performance['efficiency'].append(np.mean(efficiency))
+        method_performance['performance'].append(np.mean(performance))
 
     return method_performance
 
@@ -300,23 +337,35 @@ if __name__ == "__main__":
 
     if args.mode == 'train':
 
+        # directories_map_RVO = {
+        #     'cv': '/home/phong/driving_data/official/gamma_planner_path1_vel3/cv/result/gamma_drive_mode/shi_men_er_lu/',
+        #     'ca': '/home/phong/driving_data/official/gamma_planner_path1_vel3/ca/result/gamma_drive_mode/shi_men_er_lu/',
+        #     'hivt': '/home/phong/driving_data/official/gamma_planner_path1_vel3/hivt/result/gamma_drive_mode/shi_men_er_lu/',
+        #     'lanegcn': '/home/phong/driving_data/official/gamma_planner_path1_vel3/lanegcn/result/gamma_drive_mode/shi_men_er_lu/',
+        #     'lstmdefault': '/home/phong/driving_data/official/gamma_planner_path1_vel3/lstmdefault/result/gamma_drive_mode/shi_men_er_lu/',
+        #     'lstmsocial': '/home/phong/driving_data/official/gamma_planner_path1_vel3/lstmsocial5Hz/result/gamma_drive_mode/shi_men_er_lu/',
+        #     'knnsocial': '/home/phong/driving_data/official/gamma_planner_path1_vel3/knnsocial/result/gamma_drive_mode/shi_men_er_lu/',
+        #     'knndefault': '/home/phong/driving_data/official/gamma_planner_path1_vel3/knndefault/result/gamma_drive_mode/shi_men_er_lu/'
+        # }
+
         directories_map_RVO = {
-            'cv': '/home/phong/driving_data/official/gamma_planner_path1_vel3/cv/',
-            'ca': '/home/phong/driving_data/official/gamma_planner_path1_vel3/ca/',
-            'hivt': '/home/phong/driving_data/official/gamma_planner_path1_vel3/hivt/',
-            'lanegcn': '/home/phong/driving_data/official/gamma_planner_path1_vel3/lanegcn/',
-            'lstmdefault': '/home/phong/driving_data/official/gamma_planner_path1_vel3/lstmdefault/',
-            'lstmsocial': '/home/phong/driving_data/official/gamma_planner_path1_vel3/lstmsocial5Hz/',
-            'knnsocial': '/home/phong/driving_data/official/gamma_planner_path1_vel3/knnsocial/',
-            'knndefault': '/home/phong/driving_data/official/gamma_planner_path1_vel3/knndefault/'
+            'cv': '/home/phong/driving_data/official/gamma_planner_path1_vel3/cv',
+            'ca': '/home/phong/driving_data/official/gamma_planner_path1_vel3/ca',
+            'hivt': '/home/phong/driving_data/official/gamma_planner_path1_vel3/hivt',
+            'lanegcn': '/home/phong/driving_data/official/gamma_planner_path1_vel3/lanegcn',
+            'lstmdefault': '/home/phong/driving_data/official/gamma_planner_path1_vel3/lstmdefault',
+            'lstmsocial': '/home/phong/driving_data/official/gamma_planner_path1_vel3/lstmsocial5Hz',
+            'knnsocial': '/home/phong/driving_data/official/gamma_planner_path1_vel3/knnsocial',
+            'knndefault': '/home/phong/driving_data/official/gamma_planner_path1_vel3/knndefault'
         }
-        
+
         prediction_performance_RVO = {}
         driving_performance_RVO = {}
 
         for key in directories_map_RVO.keys():
             print(f"Processing {key}")
             prediction_performance, driving_performance = get_dynamic_ade(directories_map_RVO[key], pred_len)
+            # prediction_performance, driving_performance = get_dynamic_ade_eachmap(directories_map_RVO[key], pred_len)
             prediction_performance_RVO[key] = prediction_performance
             driving_performance_RVO[key] = driving_performance
 
@@ -337,52 +386,23 @@ if __name__ == "__main__":
               f"Mean ADE obs20 for {key} is {np.nanmean(prediction_performance_RVO[key]['ade_obs20']):.2f} " 
               f"Mean ADE obs20 closest for {key} is {np.nanmean(prediction_performance_RVO[key]['ade_closest']):.2f}")
     
-    method_performance = get_method_performance(prediction_performance_RVO, driving_performance_RVO, methods, 'ade')
     
-    ## plot static ade vs dynamic ade ##
-    offsets=0.2
-    position = np.arange(len(methods)) + np.arange(len(methods))//4
-    fig, ax = plt.subplots()
-    fig.set_size_inches(12, 9)
-    ax.bar(position-1.5*offsets, performance_summit, width=offsets, color='red', align='center', label='Summit_dataset')
-    ax.bar(position-0.5*offsets, performance_RVO_closest, width=offsets, color='orange', align='center', label='RVO_planner_closest')
-    ax.bar(position+0.5*offsets, performance_RVO_obs20, width=offsets, color='blue', align='center', label='RVO_planner_obs20')
-    ax.bar(position+1.5*offsets, performance_RVO, width=offsets, color='green', align='center', label='RVO_planner')
-    ax.set_xticks(position)
-    ax.set_xticklabels(methods)
-    ax.set_title('Comparison of Static_ADE and Dynamic_ADE')
-    ax.set_ylabel('ADE')
-    ax.legend()
-    plt.show()
-    plt.savefig("1_Static_ADE_vs_Dynamic_ADE_RVO.png")
+    # for metric in prediction_performance_RVO['cv'].keys():
+    #     method_performance = get_method_performance(prediction_performance_RVO, driving_performance_RVO, methods, metric)
 
-    ## Static ADE vs Driving Performance##
-    fig, ax = plt.subplots()
-    fig.set_size_inches(10, 7)
-    ax.scatter(x=performance_summit, y=method_performance, c='red', marker='o')
-    for i in range(len(method_performance)):
-        ax.text(performance_summit[i], method_performance[i], methods[i])
-    ax.set_xlabel("Static ADE")
-    ax.set_title('Relation between Static ADE and Driving Performance')
-    ax.set_ylabel('Driving Performance')
-    plt.show()
-    plt.savefig("1_Static_ADE_vs_Driving_Performance_RVO.png")
-    print("Plot the relation between Static ADE and Driving Performance")
+    #     fig, ax = plt.subplots(nrows=1, ncols=4, figsize=(16, 4))
+    #     performance_dynamic = [np.nanmean(prediction_performance_RVO[method][metric]) for method in methods]
+    #     for i, eval_metric in enumerate(method_performance.keys()):
+    #         ax[i].scatter(x=performance_dynamic, y=method_performance[eval_metric], c='red', marker='o')
+    #     # Add labels for each point
+    #         for j in range(len(methods)):
+    #             ax[i].text(performance_dynamic[j], method_performance[eval_metric][j], methods[j])
+    #         ax[i].set_xlabel(metric)
+    #         ax[i].set_ylabel(eval_metric)
+    #         ax[i].set_title(f'Relation between {metric} and {eval_metric}')
 
-    ## Dynamic ADE vs Driving Performance##
-    fig, ax = plt.subplots()
-    fig.set_size_inches(10, 7)
-    performance_dynamic = [np.nanmean(prediction_performance_RVO[key]['ade']) for key in methods]
-    ax.scatter(x=performance_dynamic, y=method_performance, c='red', marker='o')
-    # Add labels for each point
-    for i in range(len(method_performance)):
-        ax.text(performance_dynamic[i], method_performance[i], methods[i])
-    ax.set_xlabel("Dynamic ADE")
-    ax.set_title('Relation between Dynamic ADE and Driving Performance')
-    ax.set_ylabel('Driving Performance')
-    plt.show()
-    plt.savefig("1_Dynamic_ADE_vs_Driving_Performance_RVO.png")
-    print("Plot the relation between Dynamic ADE and Driving Performance")
+    #     plt.show()
+    #     plt.savefig(f"0_{metric}_RVO.png")
 
     scatter_plot_multi_pred_3_metric(prediction_performance_RVO, driving_performance_RVO, methods_to_plot = methods, \
                                     prediction_metric = 'ade', x_limit = pred_len/5)

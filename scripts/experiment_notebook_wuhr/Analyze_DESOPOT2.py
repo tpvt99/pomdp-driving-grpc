@@ -13,7 +13,7 @@ import pandas as pd
 import statsmodels.api as sm
 import numpy as np
 
-from common_performance_stats import get_dynamic_ade
+from common_performance_stats import get_dynamic_ade, get_dynamic_ade_eachmap
 
 # Weights for each metric within a category
 safety_weights = {
@@ -198,9 +198,37 @@ def scatter_plot_multi_pred_3_metric(prediction_performance, driving_performance
     all_comfort = np.array(all_comfort).reshape(-1,1)
     all_efficiency = np.array(all_efficiency).reshape(-1,1)
 
-    all_ade_1, safety_data_1 = remove_outliers_iqr(all_ade, all_safety, multiplier=3)
-    all_ade_2, comfort_data_2 = remove_outliers_iqr(all_ade, all_comfort, multiplier=3)
-    all_ade_3, efficiency_data_3 = remove_outliers_iqr(all_ade, all_efficiency, multiplier=3)
+    all_ade_1, safety_data_1 = remove_outliers_iqr(all_ade, all_safety, multiplier=1.5)
+    all_ade_2, comfort_data_2 = remove_outliers_iqr(all_ade, all_comfort, multiplier=1.5)
+    all_ade_3, efficiency_data_3 = remove_outliers_iqr(all_ade, all_efficiency, multiplier=1.5)
+
+    interval1 = (np.max(all_ade_1)-np.min(all_ade_1))/50
+    bins1 = np.arange(np.min(all_ade_1),np.max(all_ade_1), interval1)
+    bin_indices1 = np.digitize(all_ade_1, bins1)
+
+    interval2 = (np.max(all_ade_2)-np.min(all_ade_2))/50
+    bins2 = np.arange(np.min(all_ade_2),np.max(all_ade_2), interval2)
+    bin_indices2 = np.digitize(all_ade_2, bins2)
+
+    interval3 = (np.max(all_ade_3)-np.min(all_ade_3))/50
+    bins3 = np.arange(np.min(all_ade_3),np.max(all_ade_3), interval3)
+    bin_indices3 = np.digitize(all_ade_3, bins3)
+
+    all_safety_means, all_comfort_means, all_efficiency_means = [], [], []
+    for i in range(1, len(bins1)):
+        all_safety_means.append(np.mean(safety_data_1[bin_indices1 == i]))
+    for i in range(1, len(bins2)):
+        all_comfort_means.append(np.mean(comfort_data_2[bin_indices2 == i]))
+    for i in range(1, len(bins3)):
+        all_efficiency_means.append(np.mean(efficiency_data_3[bin_indices3 == i]))
+    
+    all_ade_means1 = bins1[:-1] + interval1/2
+    all_ade_means2 = bins2[:-1] + interval2/2
+    all_ade_means3 = bins3[:-1] + interval3/2
+
+    axes[0].scatter(x=all_ade_means2, y=all_comfort_means, c='red', marker='o')
+    axes[1].scatter(x=all_ade_means1, y=all_safety_means, c='red', marker='o')
+    axes[2].scatter(x=all_ade_means3, y=all_efficiency_means, c='red', marker='o')
     
     # all_ade_cons = sm.add_constant(all_ade_1)
     # model = sm.OLS(safety_data_1, all_ade_cons)
@@ -223,32 +251,32 @@ def scatter_plot_multi_pred_3_metric(prediction_performance, driving_performance
     # axes[2].plot(all_ade_cons[:,1], predicted_y)
     # print(results.summary())
 
-    all_comfort_cons = sm.add_constant(comfort_data_2)
-    model = sm.OLS(all_ade_2, all_comfort_cons)
-    results = model.fit(loss='mse')
-    predicted_ade = results.predict(all_comfort_cons)
-    axes[0].plot(predicted_ade, all_comfort_cons[:,1])
-    print(results.summary())
+    # all_comfort_cons = sm.add_constant(comfort_data_2)
+    # model = sm.OLS(all_ade_2, all_comfort_cons)
+    # results = model.fit(loss='mse')
+    # predicted_ade = results.predict(all_comfort_cons)
+    # axes[0].plot(predicted_ade, all_comfort_cons[:,1])
+    # print(results.summary())
 
-    all_safety_cons = sm.add_constant(safety_data_1)
-    model = sm.OLS(all_ade_1, all_safety_cons)
-    results = model.fit(loss='mse')
-    predicted_ade = results.predict(all_safety_cons)
-    axes[1].plot(predicted_ade, all_safety_cons[:,1])
-    print(results.summary())
+    # all_safety_cons = sm.add_constant(safety_data_1)
+    # model = sm.OLS(all_ade_1, all_safety_cons)
+    # results = model.fit(loss='mse')
+    # predicted_ade = results.predict(all_safety_cons)
+    # axes[1].plot(predicted_ade, all_safety_cons[:,1])
+    # print(results.summary())
 
-    all_efficiency_cons = sm.add_constant(efficiency_data_3)
-    model = sm.OLS(all_ade_3, all_efficiency_cons)
-    results = model.fit(loss='mse')
-    predicted_ade = results.predict(all_efficiency_cons)
-    axes[2].plot(predicted_ade, all_efficiency_cons[:,1])
-    print(results.summary())
+    # all_efficiency_cons = sm.add_constant(efficiency_data_3)
+    # model = sm.OLS(all_ade_3, all_efficiency_cons)
+    # results = model.fit(loss='mse')
+    # predicted_ade = results.predict(all_efficiency_cons)
+    # axes[2].plot(predicted_ade, all_efficiency_cons[:,1])
+    # print(results.summary())
 
     # Update axis labels
 
-    axes[0].scatter(x=all_ade_2, y=comfort_data_2, c='red', marker='o')
-    axes[1].scatter(x=all_ade_1, y=safety_data_1, c='red', marker='o')
-    axes[2].scatter(x=all_ade_3, y=efficiency_data_3, c='red', marker='o')
+    # axes[0].scatter(x=all_ade_2, y=comfort_data_2, c='red', marker='o')
+    # axes[1].scatter(x=all_ade_1, y=safety_data_1, c='red', marker='o')
+    # axes[2].scatter(x=all_ade_3, y=efficiency_data_3, c='red', marker='o')
 
     axes[0].set_title('Comfort')
     axes[0].set_xlabel(f'{prediction_metric}')
@@ -292,6 +320,7 @@ if __name__ == "__main__":
     performance_DESPOT_closest = np.zeros(len(methods))
     
     if args.mode == 'train':
+        
         directories_map_DESPOT = {
             'cv': '/home/phong/driving_data/official/despot_planner/same_computation/cv2Hz',
             'ca': '/home/phong/driving_data/official/despot_planner/same_computation/ca2Hz',
@@ -299,9 +328,20 @@ if __name__ == "__main__":
             'lanegcn': '/home/phong/driving_data/official/despot_planner/same_computation/lanegcn02Hz',
             'lstmdefault': '/home/phong/driving_data/official/despot_planner/same_computation/lstmdefault05Hz',
             'lstmsocial': '/home/phong/driving_data/official/despot_planner/same_computation/lstmsocial03Hz/',
-            'knnsocial': '/home/phong/driving_data/official/despot_planner/same_computation/knnsocial01Hz/',
+            'knnsocial': '/home/phong/driving_data/official/despot_planner/same_computation/knnsocial005Hz/',
             'knndefault': '/home/phong/driving_data/official/despot_planner/same_computation/knndefault01Hz/',
         }
+
+        # directories_map_DESPOT = {
+        #     'cv': '/home/phong/driving_data/official/despot_planner/same_computation/cv2Hz/result/joint_pomdp_drive_mode/shi_men_er_lu/',
+        #     'ca': '/home/phong/driving_data/official/despot_planner/same_computation/ca2Hz/result/joint_pomdp_drive_mode/shi_men_er_lu/',
+        #     'hivt': '/home/phong/driving_data/official/despot_planner/same_computation/hivt02Hz/result/joint_pomdp_drive_mode/shi_men_er_lu/',
+        #     'lanegcn': '/home/phong/driving_data/official/despot_planner/same_computation/lanegcn02Hz/result/joint_pomdp_drive_mode/shi_men_er_lu/',
+        #     'lstmdefault': '/home/phong/driving_data/official/despot_planner/same_computation/lstmdefault05Hz/result/joint_pomdp_drive_mode/shi_men_er_lu/',
+        #     'lstmsocial': '/home/phong/driving_data/official/despot_planner/same_computation/lstmsocial03Hz/result/joint_pomdp_drive_mode/shi_men_er_lu/',
+        #     'knnsocial': '/home/phong/driving_data/official/despot_planner/same_computation/knnsocial005Hz/result/joint_pomdp_drive_mode/shi_men_er_lu/',
+        #     'knndefault': '/home/phong/driving_data/official/despot_planner/same_computation/knndefault01Hz/result/joint_pomdp_drive_mode/shi_men_er_lu/',
+        # }
 
         prediction_performance_DESPOT = {}
         driving_performance_DESPOT = {}
@@ -309,6 +349,7 @@ if __name__ == "__main__":
         for key in directories_map_DESPOT.keys():
             print(f"Processing {key}")
             prediction_performance, driving_performance = get_dynamic_ade(directories_map_DESPOT[key], pred_len)
+            # prediction_performance, driving_performance = get_dynamic_ade_eachmap(directories_map_DESPOT[key], pred_len)
             prediction_performance_DESPOT[key] = prediction_performance
             driving_performance_DESPOT[key] = driving_performance
 
