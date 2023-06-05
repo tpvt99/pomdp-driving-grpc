@@ -522,9 +522,9 @@ def plot_static_ade_vs_driving_performance(prediction_performance_RVO, driving_p
     else:
         prediction_performance_map = prediction_performance_DESPOT
         driving_performance_map = driving_performance_DESPOT
-    static_metric = 'FDE'
+    static_metric = 'ADE'
     dynamic_metric = 'ade_predlen30'
-    static_or_dynamic = 'dynamic'
+    static_or_dynamic = 'static'
     ### Done parameters
 
     performance_summit_ade = np.array([2.938, 2.989, 3.099, 3.196, 1.692, 1.944, 2.410, 2.480])
